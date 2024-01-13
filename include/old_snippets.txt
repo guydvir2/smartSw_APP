@@ -1,0 +1,23 @@
+void print_telemetry(SW_act_telem &tele)
+{
+  Serial.println("~~~ START ~~~");
+  Serial.print("newMSG: ");
+  Serial.println(tele.newMSG);
+  Serial.print("lockdown: ");
+  Serial.println(tele.lockdown);
+  Serial.print("state: ");
+  Serial.println(tele.state);
+  Serial.print("indic_state: ");
+  Serial.println(tele.indic_state);
+  Serial.print("pwm: ");
+  Serial.println(tele.pwm);
+  Serial.print("reason: ");
+  Serial.println(tele.reason);
+  Serial.print("pressCount: ");
+  Serial.println(tele.pressCount);
+  Serial.print("clk_start: ");
+  Serial.println(tele.clk_start);
+  Serial.print("clk_end: ");
+  Serial.println(tele.clk_end);
+  Serial.println("~~~ END ~~~");
+}
