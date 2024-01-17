@@ -9,7 +9,7 @@
 
 myIOT2 iot;
 smartSwitch *SW_Array[NUM_SW]{};
-
+const char *verApp = "smartSWApp_v0.1";
 uint8_t SW_inUse = 0;
 bool firstLoop = true;
 bool bootSucceeded = false;
@@ -22,11 +22,11 @@ void getPWMval(uint8_t i, char msg[])
   SW_Array[i]->get_SW_props(sw_properties);
   if (sw_properties.PWM_intense && SW_Array[i]->get_SWstate())
   {
-    sprintf(msg, "Power: [%d%%]", SW_Array[i]->telemtryMSG.pwm);
+    sprintf(msg, ", Power: [%d%%]", SW_Array[i]->telemtryMSG.pwm);
   }
   else if (sw_properties.PWM_intense && !SW_Array[i]->get_SWstate())
   {
-    sprintf(msg, "Power: [%d%%]", sw_properties.PWM_intense);
+    sprintf(msg, ", Power: [%d%%]", sw_properties.PWM_intense);
   }
   else
   {
@@ -47,9 +47,37 @@ void createTelemetry_post(uint8_t i)
           SW_Array[i]->telemtryMSG.indic_state ? "true" : "false", SW_Array[i]->telemtryMSG.pwm,
           SW_Array[i]->telemtryMSG.state, SW_Array[i]->telemtryMSG.reason, SW_Array[i]->telemtryMSG.pressCount,
           SW_Array[i]->telemtryMSG.clk_end, SW_Array[i]->telemtryMSG.clk_start);
-          
+
   iot.pub_noTopic(msg, topic, true);
 }
+void createEntity_post(uint8_t i)
+{
+  char clk[25];
+  char msg[300];
+  char topic[50];
+  iot.get_timeStamp(clk);
+
+  sprintf(topic, "%s/SW%d/entity", iot.topics_sub[0], i);
+  const char *swTypes[] = {"None", "Button", "Switch", "MultiPress"};
+
+  SW_props sw_properties;
+  SW_Array[i]->get_SW_props(sw_properties);
+  sprintf(msg, "{\"id\":%d, \"name\":%s, \"button_type\":%s, \"PWM_intense\":%d, \"lockdown\":%s, \"timeout\":%s, \"Duration\":%d, \"inputPin\":%d, \"outPin\":%d, \"indicationPin\":%d, \"virtual\":%s}",
+          sw_properties.id,
+          sw_properties.name,
+          swTypes[sw_properties.type],
+          sw_properties.PWM_intense,
+          sw_properties.lockdown ? "yes" : "no",
+          sw_properties.timeout ? "yes" : "no",
+          sw_properties.TO_dur,
+          sw_properties.inpin,
+          sw_properties.outpin,
+          sw_properties.indicpin,
+          sw_properties.virtCMD ? "yes" : "no");
+
+  iot.pub_noTopic(msg, topic, true);
+}
+
 void extMQTT(char *incoming_msg, char *_topic)
 {
   char msg[200];
@@ -61,29 +89,44 @@ void extMQTT(char *incoming_msg, char *_topic)
       SW_props sw_properties;
       SW_Array[i]->get_SW_props(sw_properties);
 
-      if (SW_Array[i]->useTimeout())
-      {
-        char clk[20];
-        char clk2[20];
-        char clk3[20];
-        iot.convert_epoch2clock(SW_Array[i]->get_timeout() / 1000, 0, clk3);
-        iot.convert_epoch2clock(SW_Array[i]->get_remain_time() / 1000, 0, clk);
-        iot.convert_epoch2clock(SW_Array[i]->get_elapsed() / 1000, 0, clk2);
+      char sss[20];
+      char clk[20];
+      char clk2[20];
+      char clk3[20];
+      char clk4[20];
 
-        if (SW_Array[i]->get_SWstate())
+      getPWMval(i, sss);
+      iot.convert_epoch2clock(SW_Array[i]->get_timeout() / 1000, 0, clk3);
+      const char *trigs[] = {"Button", "Timeout", "MQTT", "atBoot", "Resume"};
+
+      if (SW_Array[i]->get_SWstate())
+      {
+        if (SW_Array[i]->useTimeout())
         {
-          sprintf(msg2, "Timeout: [%s], elapsed: [%s], remain: [%s]", clk3, clk2, clk);
+          iot.convert_epoch2clock(SW_Array[i]->get_remain_time() / 1000, 0, clk);
+          iot.convert_epoch2clock(SW_Array[i]->get_elapsed() / 1000, 0, clk2);
+          sprintf(msg2, "timeout: [%s], elapsed: [%s], remain: [%s], triggered: [%s]", clk3, clk2, clk, trigs[SW_Array[i]->telemtryMSG.reason]);
         }
         else
         {
-          sprintf(msg2, "Timeout: [%s]", clk3);
+          iot.convert_epoch2clock((millis() - SW_Array[i]->telemtryMSG.clk_start) / 1000, 0, clk4);
+          sprintf(msg2, "timeout: [%s], elapsed: [%s], remain: [%s], triggered: [%s]", "NA", clk4, "NA",trigs[SW_Array[i]->telemtryMSG.reason]);
         }
       }
-      char sss[20];
-      getPWMval(i, sss);
-      sprintf(msg, "[Status]: [SW#%d] [%s] [%s] %s %s",
-              i, SW_Array[i]->name, SW_Array[i]->get_SWstate() ? "On" : "Off",
-              SW_Array[i]->useTimeout() ? msg2 : "Timeout: [No]", sss);
+      else
+      {
+        if (SW_Array[i]->useTimeout())
+        {
+          sprintf(msg2, "Timeout: [%s]", clk3);
+        }
+        else
+        {
+          sprintf(msg2, "Timeout: [%s]", "NA");
+        }
+      }
+
+      sprintf(msg, "[Status]: [SW#%d] name: [%s] state: [%s] %s%s",
+              i, SW_Array[i]->name, SW_Array[i]->get_SWstate() ? "On" : "Off", msg2, sss);
       iot.pub_msg(msg);
     }
   }
@@ -94,22 +137,8 @@ void extMQTT(char *incoming_msg, char *_topic)
   }
   else if (strcmp(incoming_msg, "ver2") == 0)
   {
-    sprintf(msg, "ver #2: %s", SW_Array[0]->ver);
+    sprintf(msg, "ver #2: %s %s", verApp, SW_Array[0]->ver);
     iot.pub_msg(msg);
-  }
-  else if (strcmp(incoming_msg, "entities") == 0)
-  {
-    const char *swTypes[] = {"None", "Button", "Switch", "MultiPress"};
-    for (uint8_t n = 0; n < SW_inUse; n++)
-    {
-      SW_props sw_properties;
-      SW_Array[n]->get_SW_props(sw_properties);
-      sprintf(msg, "Entities: id:%d, name:%s, button_type:%s, output_PWM:%s, lockdown:%s, timeout:%s, Duration:%d, inputPin:%d, outPin:%d, indicationPin:%d, virtual:%s",
-              sw_properties.id, sw_properties.name, swTypes[sw_properties.type], sw_properties.PWM_intense > 0 ? "yes" : "no",
-              sw_properties.lockdown ? "yes" : "no", sw_properties.timeout ? "yes" : "no", sw_properties.TO_dur, sw_properties.inpin,
-              sw_properties.outpin, sw_properties.indicpin, sw_properties.virtCMD ? "yes" : "no");
-      iot.pub_msg(msg);
-    }
   }
   else if (strcmp(incoming_msg, "show_params") == 0)
   {
@@ -325,6 +354,11 @@ void post_succes_reboot()
     firstLoop = false;
     restoreSaved_SwState_afterReboot(); /* Read from flash activity, for restore after reboot - in case timeouts are not over */
     On_atBoot();                        /* Start Switches that need to be ON after reboot */
+
+    for (uint8_t i = 0; i < SW_inUse; i++)
+    {
+      createEntity_post(i);
+    }
   }
 }
 
