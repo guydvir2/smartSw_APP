@@ -3,7 +3,7 @@
 #include <smartSwitch.h>
 
 #define NUM_SW 4
-#define JSON_DOC_SIZE 1200
+#define JSON_DOC_SIZE 1000
 #define ACT_JSON_DOC_SIZE 800
 #define READ_PARAMTERS_FROM_FLASH true /* Flash or HardCoded Parameters */
 
@@ -133,7 +133,7 @@ void extMQTT(char *incoming_msg, char *_topic)
   }
   else if (strcmp(incoming_msg, "help2") == 0)
   {
-    sprintf(msg, "help #2:{[i],on,[timeout],[pwm_percentage]},{[i],off}, {[i], add_time,[timeout]}, {[i], remain}, {[i], timeout}, {[i], elapsed}, {[i], show_params}");
+    sprintf(msg, "help #2:all_off, {[i],on,[timeout],[pwm_percentage]},{[i],off}, {[i], add_time,[timeout]}, {[i], remain}, {[i], timeout}, {[i], elapsed}, {[i], show_params}");
     iot.pub_msg(msg);
   }
   else if (strcmp(incoming_msg, "ver2") == 0)
@@ -171,6 +171,14 @@ void extMQTT(char *incoming_msg, char *_topic)
       }
       iot.pub_msg("[Paramters]: Published in debug");
     }
+  }
+  else if (strcmp(incoming_msg, "all_off") == 0)
+  {
+    for (uint8_t i = 0; i < SW_inUse; i++)
+    {
+      SW_Array[i]->turnOFF_cb(EXT_0);
+    }
+    iot.pub_msg("[MQTT]: All off");
   }
   else
   {
@@ -345,14 +353,21 @@ void restoreSaved_SwState_afterReboot()
     {
       if ((DOC["state"][i].as<uint8_t>() | SW_OFF) == SW_ON && (DOC["lockdown"][i].as<bool>() | false) == false)
       {
-        unsigned long _t = DOC["clk_start"][i].as<unsigned long>() + DOC["clk_end"][i].as<unsigned long>() * 0.001;
+        unsigned long _t = DOC["clk_start"][i].as<unsigned long>() /* Epoch Clock in seconds */ + DOC["clk_end"][i].as<unsigned long>() * 0.001 /* Convert to seconds */;
+
         if (DOC["clk_end"][i].as<unsigned long>() == 0)
         {
           SW_Array[i]->turnON_cb(EXT_2);
         }
         else if (_t > iot.now())
         {
-          SW_Array[i]->turnON_cb(EXT_2, _t - iot.now(), DOC["pwm"][i].as<uint8_t>());
+          int tempTO = (_t - iot.now()) / (TimeFactor == MINUTES ? 60 : 1); /* correction- minutes or seconds */
+          SW_Array[i]->turnON_cb(EXT_2, tempTO, DOC["pwm"][i].as<uint8_t>());
+        }
+        else
+        {
+          Serial.println("C");
+          yield();
         }
       }
     }
@@ -411,19 +426,18 @@ void turnON_notifications(uint8_t i, char *msg, const char *stat, const char *tr
 }
 void turnOFF_notifications(uint8_t i, char *msg, const char *stat, const char *trig)
 {
-  if (SW_Array[i]->telemtryMSG.clk_end != 0)
-  {
-    char clk[25];
-    SW_props sw_properties;
-    SW_Array[i]->get_SW_props(sw_properties);
-
-    iot.convert_epoch2clock(SW_Array[i]->get_elapsed() / 1000, 0, clk);
-    sprintf(msg, "[%s]: [%s] turned [%s], elapsed [%s]", trig, SW_Array[i]->name, stat, clk);
-  }
-  else
-  {
-    sprintf(msg, "[%s]: [%s] turned [%s]", trig, SW_Array[i]->name, stat);
-  }
+  char clk[25];
+  // if (SW_Array[i]->telemtryMSG.clk_end != 0)
+  // {
+  //   SW_props sw_properties;
+  //   SW_Array[i]->get_SW_props(sw_properties);
+  //   iot.convert_epoch2clock(SW_Array[i]->get_elapsed() / 1000, 0, clk);
+  // }
+  // else
+  // {
+  iot.convert_epoch2clock((millis() - SW_Array[i]->telemtryMSG.clk_start) / 1000, 0, clk);
+  // }
+  sprintf(msg, "[%s]: [%s] turned [%s], elapsed [%s]", trig, SW_Array[i]->name, stat, clk);
   saveActivity_file(i);
 }
 
@@ -467,7 +481,6 @@ void startService()
 
 void setup()
 {
-  Serial.begin(115200);
   startService();
 }
 void loop()

@@ -26,9 +26,8 @@ uint8_t readParameters_hardCoded(JsonDocument &DOC)
 uint8_t readTopics_hardCoded(JsonDocument &DOC)
 {
   const char *params = "{ \"gen_pubTopic\":[\"DvirHome/Messages\",\"DvirHome/log\",\"DvirHome/debug\"],\
-                          \"subTopic\":[\"DvirHome/light_CODE\"],\
-                          \"availTopic\":[\"DvirHome/light_CODE/Avail\"],\
-                          \"stateTopic\":[\"DvirHome/light_CODE/State\"]}";
+                          \"subTopic\":[\"DvirHome/light_CODE\",\"DvirHome/All\"],\
+                          \"pubTopics\":[\"DvirHome/light_CODE/Avail\",\"DvirHome/light_CODE/State\"]}";
   DeserializationError err = deserializeJson(DOC, params);
   return err.code();
 }
@@ -66,9 +65,7 @@ void init_SW(JsonDocument &DOC)
 void init_iot2(JsonDocument &DOC)
 {
   select_Topicsdefinition_src(DOC, swTopics_filename); /* Stored in flash or hard-coded */
-  serializeJsonPretty(DOC,Serial);
-  Serial.flush();
-  start_iot2(DOC); /* iot2 should start always, regardless success of SW */
+  start_iot2(DOC);                                     /* iot2 should start always, regardless success of SW */
 }
 
 void Telemtry2JSON(JsonDocument &DOC, uint8_t i)
@@ -81,7 +78,7 @@ void Telemtry2JSON(JsonDocument &DOC, uint8_t i)
   DOC["pressCount"][i] = SW_Array[i]->telemtryMSG.pressCount;
   DOC["clk_end"][i] = SW_Array[i]->telemtryMSG.clk_end;
 
-  if (SW_Array[i]->telemtryMSG.state) /* if on save clk else store 0 */
+  if (SW_Array[i]->telemtryMSG.state) /* if ON, save clk else store 0 */
   {
     DOC["clk_start"][i] = iot.now();
   }
@@ -102,7 +99,6 @@ bool saveActivity_file(uint8_t i)
 {
   myJflash ActionSave;
   DynamicJsonDocument DOC(ACT_JSON_DOC_SIZE);
-
   readActivity_file(DOC);
   Telemtry2JSON(DOC, i);
   return ActionSave.writeFile(DOC, savedActivity_filename);
