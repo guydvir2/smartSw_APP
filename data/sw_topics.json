@@ -5,12 +5,11 @@
         "DvirHome/debug"
     ],
     "subTopic": [
-        "DvirHome/Light"
+        "DvirHome/Light",
+        "DvirHome/All"
     ],
-    "availTopic": [
-        "DvirHome/Light/Avail"
-    ],
-    "stateTopic": [
+    "pubTopic": [
+        "DvirHome/Light/Avail",
         "DvirHome/Light/State"
     ]
 }

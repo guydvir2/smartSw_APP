@@ -3,13 +3,14 @@
 #include <smartSwitch.h>
 
 #define NUM_SW 4
-#define JSON_DOC_SIZE 800
+#define JSON_DOC_SIZE 1200
 #define ACT_JSON_DOC_SIZE 800
 #define READ_PARAMTERS_FROM_FLASH true /* Flash or HardCoded Parameters */
 
 myIOT2 iot;
 smartSwitch *SW_Array[NUM_SW]{};
 const char *verApp = "smartSWApp_v0.1";
+
 uint8_t SW_inUse = 0;
 bool firstLoop = true;
 bool bootSucceeded = false;
@@ -80,12 +81,12 @@ void createEntity_post(uint8_t i)
 
 void extMQTT(char *incoming_msg, char *_topic)
 {
-  char msg[200];
+  char msg[270];
   if (strcmp(incoming_msg, "status") == 0)
   {
     for (uint8_t i = 0; i < SW_inUse; i++)
     {
-      char msg2[100];
+      char msg2[160];
       SW_props sw_properties;
       SW_Array[i]->get_SW_props(sw_properties);
 
@@ -110,7 +111,7 @@ void extMQTT(char *incoming_msg, char *_topic)
         else
         {
           iot.convert_epoch2clock((millis() - SW_Array[i]->telemtryMSG.clk_start) / 1000, 0, clk4);
-          sprintf(msg2, "timeout: [%s], elapsed: [%s], remain: [%s], triggered: [%s]", "NA", clk4, "NA",trigs[SW_Array[i]->telemtryMSG.reason]);
+          sprintf(msg2, "timeout: [%s], elapsed: [%s], remain: [%s], triggered: [%s]", "NA", clk4, "NA", trigs[SW_Array[i]->telemtryMSG.reason]);
         }
       }
       else
@@ -254,19 +255,39 @@ void start_iot2(JsonDocument &DOC)
   iot.noNetwork_reset = 2;
   iot.ignore_boot_msg = false;
 
-  const char *gtp1 = DOC["gen_pubTopic"][0] | "DvirHome/Messages";
-  const char *gtp2 = DOC["gen_pubTopic"][1] | "DvirHome/log";
-  const char *gtp3 = DOC["gen_pubTopic"][2] | "DvirHome/debug";
-  const char *st = DOC["subTopic"][0] | "DvirHome/Device";
-  const char *at = DOC["availTopic"][0] | "DvirHome/Device/Avail";
-  const char *stt = DOC["stateTopic"][0] | "DvirHome/Device/State";
+  // const char *gtp1 = DOC["gen_pubTopic"][0] | "DvirHome/Messages";
+  // const char *gtp2 = DOC["gen_pubTopic"][1] | "DvirHome/log";
+  // const char *gtp3 = DOC["gen_pubTopic"][2] | "DvirHome/debug";
+  // const char *st = DOC["subTopic"][0] | "DvirHome/Device";
+  // const char *st2 = DOC["subTopic"][1] | "DvirHome/All";
+  // const char *at = DOC["availTopic"][0] | "DvirHome/Device/Avail";
+  // const char *stt = DOC["stateTopic"][0] | "DvirHome/Device/State";
+  // iot.add_gen_pubTopic(gtp1);                            /* Messages */
+  // iot.add_gen_pubTopic(gtp2);                            /* log */
+  // iot.add_gen_pubTopic(gtp3);                            /* debug */
+  // iot.add_subTopic(st);                                  /* Device's Topic */
+  // iot.add_subTopic(DOC["subTopic"][1] | "DvirHome/All"); /* Device's Topic */
+  // iot.add_pubTopic(at);                                  /* Avail */
+  // iot.add_pubTopic(stt);
 
-  iot.add_gen_pubTopic(gtp1); /* Messages */
-  iot.add_gen_pubTopic(gtp2); /* log */
-  iot.add_gen_pubTopic(gtp3); /* debug */
-  iot.add_subTopic(st);       /* Device's Topic */
-  iot.add_pubTopic(at);       /* Avail */
-  iot.add_pubTopic(stt);      /* State */
+  /* Default values */
+  const char *t[] = {"DvirHome/Messages", "DvirHome/log", "DvirHome/debug"};
+  const char *t2[] = {"DvirHome/Device", "DvirHome/All"};
+  const char *t3[] = {"DvirHome/Device/Avail", "DvirHome/Device/State"};
+  /* Default values*/
+
+  for (uint8_t i = 0; i < (DOC["gen_pubTopic"].size() | 3); i++)
+  {
+    iot.add_gen_pubTopic(DOC["gen_pubTopic"][i] | t[i]);
+  }
+  for (uint8_t i = 0; i < (DOC["subTopic"].size() | 2); i++)
+  {
+    iot.add_subTopic(DOC["subTopic"][i] | t2[i]);
+  }
+  for (uint8_t i = 0; i < (DOC["pubTopic"].size() | 3); i++)
+  {
+    iot.add_pubTopic(DOC["pubTopic"][i] | t3[i]);
+  }
 
   iot.start_services(extMQTT);
 }
@@ -289,7 +310,9 @@ void createSW(SW_props &sw)
 void build_SWdefinitions(JsonDocument &DOC)
 {
   uint8_t numSW = DOC["numSW"] | 0;
-  for (uint8_t n = 0; n < numSW; n++)
+  uint8_t m = numSW < NUM_SW ? numSW : NUM_SW;
+
+  for (uint8_t n = 0; n < m; n++)
   {
     SW_props sw;
     sw.id = n;
@@ -444,6 +467,7 @@ void startService()
 
 void setup()
 {
+  Serial.begin(115200);
   startService();
 }
 void loop()

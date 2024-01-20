@@ -66,7 +66,8 @@ void init_SW(JsonDocument &DOC)
 void init_iot2(JsonDocument &DOC)
 {
   select_Topicsdefinition_src(DOC, swTopics_filename); /* Stored in flash or hard-coded */
-  build_SWdefinitions(DOC);
+  serializeJsonPretty(DOC,Serial);
+  Serial.flush();
   start_iot2(DOC); /* iot2 should start always, regardless success of SW */
 }
 
