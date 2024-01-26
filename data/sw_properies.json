@@ -1,43 +1,33 @@
 {
-    "numSW": 2,
+    "numSW": 1,
     "inputType": [
-        2,
         1
     ],
     "virtCMD": [
-        0,
         0
     ],
     "inputPins": [
-        5,
-        4
-    ],
-    "outputPins": [
-        0,
         14
     ],
+    "outputPins": [
+        4
+    ],
     "indicPins": [
-        2,
         255
     ],
     "swTimeout": [
-        0,
-        10
+        720
     ],
     "swName": [
-        "sw0",
-        "sw1"
+        "Leds"
     ],
     "lockdown": [
-        false,
         false
     ],
     "pwm_intense": [
-        0,
         80
     ],
     "outputON": [
-        1,
         1
     ],
     "inputPressed": [
@@ -45,7 +35,6 @@
         0
     ],
     "onBoot": [
-        0,
-        1
+        0
     ]
 }

@@ -1,3 +1,5 @@
+const char *paramterFiles[] = {"/iot_config.json"};
+
 const char *swTopics_filename = "/sw_topics.json";
 const char *savedActivity_filename = "/activity.json";
 const char *swParameters_filename = "/sw_properies.json";
@@ -32,6 +34,15 @@ uint8_t readTopics_hardCoded(JsonDocument &DOC)
   return err.code();
 }
 
+uint8_t getArraysize(JsonDocument &DOC, const char *key, uint8_t def)
+{
+  uint8_t s = DOC[key].size();
+  if (!s)
+  {
+    s = def;
+  }
+  return s;
+}
 bool select_SWdefinition_src(JsonDocument &DOC, const char *file)
 {
   if (READ_PARAMTERS_FROM_FLASH)

@@ -258,44 +258,26 @@ void extMQTT(char *incoming_msg, char *_topic)
 }
 void start_iot2(JsonDocument &DOC)
 {
-  iot.useSerial = true;
-  iot.useFlashP = false;
-  iot.noNetwork_reset = 2;
-  iot.ignore_boot_msg = false;
-
-  // const char *gtp1 = DOC["gen_pubTopic"][0] | "DvirHome/Messages";
-  // const char *gtp2 = DOC["gen_pubTopic"][1] | "DvirHome/log";
-  // const char *gtp3 = DOC["gen_pubTopic"][2] | "DvirHome/debug";
-  // const char *st = DOC["subTopic"][0] | "DvirHome/Device";
-  // const char *st2 = DOC["subTopic"][1] | "DvirHome/All";
-  // const char *at = DOC["availTopic"][0] | "DvirHome/Device/Avail";
-  // const char *stt = DOC["stateTopic"][0] | "DvirHome/Device/State";
-  // iot.add_gen_pubTopic(gtp1);                            /* Messages */
-  // iot.add_gen_pubTopic(gtp2);                            /* log */
-  // iot.add_gen_pubTopic(gtp3);                            /* debug */
-  // iot.add_subTopic(st);                                  /* Device's Topic */
-  // iot.add_subTopic(DOC["subTopic"][1] | "DvirHome/All"); /* Device's Topic */
-  // iot.add_pubTopic(at);                                  /* Avail */
-  // iot.add_pubTopic(stt);
-
-  /* Default values */
+  /* Default values for topics */
   const char *t[] = {"DvirHome/Messages", "DvirHome/log", "DvirHome/debug"};
   const char *t2[] = {"DvirHome/Device", "DvirHome/All"};
   const char *t3[] = {"DvirHome/Device/Avail", "DvirHome/Device/State"};
-  /* Default values*/
 
-  for (uint8_t i = 0; i < (DOC["gen_pubTopic"].size() | 3); i++)
+  for (uint8_t i = 0; i < getArraysize(DOC, "gen_pubTopic", sizeof(t) / sizeof(t[0])); i++)
   {
     iot.add_gen_pubTopic(DOC["gen_pubTopic"][i] | t[i]);
   }
-  for (uint8_t i = 0; i < (DOC["subTopic"].size() | 2); i++)
+  for (uint8_t i = 0; i < getArraysize(DOC, "subTopic", sizeof(t2) / sizeof(t2[0])); i++)
   {
     iot.add_subTopic(DOC["subTopic"][i] | t2[i]);
   }
-  for (uint8_t i = 0; i < (DOC["pubTopic"].size() | 3); i++)
+  for (uint8_t i = 0; i < getArraysize(DOC, "pubTopic", sizeof(t3) / sizeof(t3[0])); i++)
   {
     iot.add_pubTopic(DOC["pubTopic"][i] | t3[i]);
   }
+
+  iot.set_pFilenames(paramterFiles, 1);
+  iot.readFlashParameters(DOC, paramterFiles[0]);
 
   iot.start_services(extMQTT);
 }
@@ -366,7 +348,6 @@ void restoreSaved_SwState_afterReboot()
         }
         else
         {
-          Serial.println("C");
           yield();
         }
       }

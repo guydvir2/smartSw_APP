@@ -5,11 +5,13 @@
         "DvirHome/debug"
     ],
     "subTopic": [
-        "DvirHome/Light",
-        "DvirHome/All"
+        "DvirHome/Light/int/KitchenLEDs",
+        "DvirHome/All",
+        "DvirHome/Light/int",
+        "DvirHome/Light"
     ],
     "pubTopic": [
-        "DvirHome/Light/Avail",
-        "DvirHome/Light/State"
+        "DvirHome/Light/int/KitchenLEDs/Avail",
+        "DvirHome/Light/int/KitchenLEDs/State"
     ]
 }
