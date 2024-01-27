@@ -51,38 +51,39 @@ void createTelemetry_post(uint8_t i)
 
   iot.pub_noTopic(msg, topic, true);
 }
-void createEntity_post(uint8_t i)
+void createEntity_post(uint8_t i = 0)
 {
-  char clk[25];
+  // char clk[25];
   char msg[300];
   char topic[50];
-  iot.get_timeStamp(clk);
+  // iot.get_timeStamp(clk);
 
-  sprintf(topic, "%s/SW%d/entity", iot.topics_sub[0], i);
+  sprintf(topic, "%s/entity", iot.topics_sub[0]);
 
-  SW_props sw_properties;
-  SW_Array[i]->get_SW_props(sw_properties);
-  sprintf(msg, "{\"numSW\":%d, \"swName\":[\"%s\"], \"inputType\":[%d], \"pwm_intense\":[%d], \"lockdown\":[%s], \
-                \"swTimeout\":[%d], \"inputPins\":[%d], \"outputPins\":[%d], \"indicPins\":[%d], \"virtCMD\":[%d], \
-                \"outputON\":[%d],\"inputPressed\":[%d],\"onBoot\":[%d]}",
-          sw_properties.id,
-          sw_properties.name,
-          sw_properties.type,
-          sw_properties.PWM_intense,
-          sw_properties.lockdown ? "true" : "false",
-          sw_properties.TO_dur / TimeFactor,
-          sw_properties.inpin,
-          sw_properties.outpin,
-          sw_properties.indicpin,
-          sw_properties.virtCMD,
-          sw_properties.outputON,
-          sw_properties.inputPressed,
-          sw_properties.onBoot);
+  // SW_props sw_properties;
+  // SW_Array[i]->get_SW_props(sw_properties);
+  // sprintf(msg, "{\"numSW\":%d, \"swName\":[\"%s\"], \"inputType\":[%d], \"pwm_intense\":[%d], \"lockdown\":[%s], \
+  //               \"swTimeout\":[%d], \"inputPins\":[%d], \"outputPins\":[%d], \"indicPins\":[%d], \"virtCMD\":[%d], \
+  //               \"outputON\":[%d],\"inputPressed\":[%d],\"onBoot\":[%d]}",
+  //         sw_properties.id,
+  //         sw_properties.name,
+  //         sw_properties.type,
+  //         sw_properties.PWM_intense,
+  //         sw_properties.lockdown ? "true" : "false",
+  //         sw_properties.TO_dur / TimeFactor,
+  //         sw_properties.inpin,
+  //         sw_properties.outpin,
+  //         sw_properties.indicpin,
+  //         sw_properties.virtCMD,
+  //         sw_properties.outputON,
+  //         sw_properties.inputPressed,
+  //         sw_properties.onBoot);
 
+  // iot.pub_noTopic(msg, topic, true);
+  DynamicJsonDocument DOC(JSON_DOC_SIZE); //<JSON_DOC_SIZE> DOC;
+  select_SWdefinition_src(DOC, swParameters_filename);
+  serializeJson(DOC, msg);
   iot.pub_noTopic(msg, topic, true);
-  DynamicJsonDocument DOC (500);//<JSON_DOC_SIZE> DOC;
-  select_SWdefinition_src(DOC,swParameters_filename);
-  serializeJsonPretty(DOC,Serial);
 }
 
 void extMQTT(char *incoming_msg, char *_topic)
@@ -267,7 +268,6 @@ void start_iot2(JsonDocument &DOC)
   /* Default values for topics */
   const char *t[] = {"DvirHome/Messages", "DvirHome/log", "DvirHome/debug"};
   const char *t2[] = {"DvirHome/Device", "DvirHome/All"};
-  const char *t3[] = {"DvirHome/Device/Avail", "DvirHome/Device/State"};
 
   for (uint8_t i = 0; i < getArraysize(DOC, "gen_pubTopic", sizeof(t) / sizeof(t[0])); i++)
   {
@@ -277,10 +277,12 @@ void start_iot2(JsonDocument &DOC)
   {
     iot.add_subTopic(DOC["subTopic"][i] | t2[i]);
   }
-  for (uint8_t i = 0; i < getArraysize(DOC, "pubTopic", sizeof(t3) / sizeof(t3[0])); i++)
-  {
-    iot.add_pubTopic(DOC["pubTopic"][i] | t3[i]);
-  }
+
+  char temp[MAX_TOPIC_SIZE];
+  sprintf(temp, "%s/Avail", DOC["subTopic"][0] | t2[0]);
+  iot.add_pubTopic(temp);
+  sprintf(temp, "%s/State", DOC["subTopic"][0] | t2[0]);
+  iot.add_pubTopic(temp);
 
   iot.set_pFilenames(paramterFiles, 1);
   iot.readFlashParameters(DOC, paramterFiles[0]);
@@ -379,11 +381,12 @@ void post_succes_reboot()
     firstLoop = false;
     restoreSaved_SwState_afterReboot(); /* Read from flash activity, for restore after reboot - in case timeouts are not over */
     On_atBoot();                        /* Start Switches that need to be ON after reboot */
+    createEntity_post();
 
-    for (uint8_t i = 0; i < SW_inUse; i++)
-    {
-      createEntity_post(i);
-    }
+    // for (uint8_t i = 0; i < SW_inUse; i++)
+    // {
+    //   createEntity_post(i);
+    // }
   }
 }
 

@@ -9,9 +9,5 @@
         "DvirHome/All",
         "DvirHome/Light/int",
         "DvirHome/Light"
-    ],
-    "pubTopic": [
-        "DvirHome/Lights/int/CorrLEDs/Avail",
-        "DvirHome/Lights/int/CorrLEDs/State"
     ]
 }
