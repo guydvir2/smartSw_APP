@@ -59,22 +59,25 @@ void createEntity_post(uint8_t i)
   iot.get_timeStamp(clk);
 
   sprintf(topic, "%s/SW%d/entity", iot.topics_sub[0], i);
-  const char *swTypes[] = {"None", "Button", "Switch", "MultiPress"};
 
   SW_props sw_properties;
   SW_Array[i]->get_SW_props(sw_properties);
-  sprintf(msg, "{\"id\":%d, \"name\":%s, \"button_type\":%s, \"PWM_intense\":%d, \"lockdown\":%s, \"timeout\":%s, \"Duration\":%d, \"inputPin\":%d, \"outPin\":%d, \"indicationPin\":%d, \"virtual\":%s}",
+  sprintf(msg, "{\"numSW\":%d, \"swName\":[\"%s\"], \"inputType\":[%d], \"pwm_intense\":[%d], \"lockdown\":[%s], \
+                \"swTimeout\":[%d], \"inputPins\":[%d], \"outputPins\":[%d], \"indicPins\":[%d], \"virtCMD\":[%d], \
+                \"outputON\":[%d],\"inputPressed\":[%d],\"onBoot\":[%d]}",
           sw_properties.id,
           sw_properties.name,
-          swTypes[sw_properties.type],
+          sw_properties.type,
           sw_properties.PWM_intense,
-          sw_properties.lockdown ? "yes" : "no",
-          sw_properties.timeout ? "yes" : "no",
-          sw_properties.TO_dur,
+          sw_properties.lockdown ? "true" : "false",
+          sw_properties.TO_dur / TimeFactor,
           sw_properties.inpin,
           sw_properties.outpin,
           sw_properties.indicpin,
-          sw_properties.virtCMD ? "yes" : "no");
+          sw_properties.virtCMD,
+          sw_properties.outputON,
+          sw_properties.inputPressed,
+          sw_properties.onBoot);
 
   iot.pub_noTopic(msg, topic, true);
 }

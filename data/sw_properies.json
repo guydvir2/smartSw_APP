@@ -1,25 +1,26 @@
 {
     "numSW": 1,
     "inputType": [
-        1
+        0
     ],
     "virtCMD": [
         0
     ],
     "inputPins": [
-        14
+        2
     ],
     "outputPins": [
-        4
+        1
     ],
     "indicPins": [
+        255,
         255
     ],
     "swTimeout": [
-        720
+        1000
     ],
     "swName": [
-        "Leds"
+        "CorridorLEDs"
     ],
     "lockdown": [
         false
@@ -31,10 +32,9 @@
         1
     ],
     "inputPressed": [
-        0,
         0
     ],
     "onBoot": [
-        0
+        1
     ]
 }
