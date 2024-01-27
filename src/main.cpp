@@ -80,6 +80,9 @@ void createEntity_post(uint8_t i)
           sw_properties.onBoot);
 
   iot.pub_noTopic(msg, topic, true);
+  DynamicJsonDocument DOC (500);//<JSON_DOC_SIZE> DOC;
+  select_SWdefinition_src(DOC,swParameters_filename);
+  serializeJsonPretty(DOC,Serial);
 }
 
 void extMQTT(char *incoming_msg, char *_topic)
@@ -465,6 +468,7 @@ void startService()
 
 void setup()
 {
+  Serial.begin(115200);
   startService();
 }
 void loop()
