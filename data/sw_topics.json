@@ -5,9 +5,9 @@
         "DvirHome/debug"
     ],
     "subTopic": [
-        "DvirHome/Lights/int/CorrLEDs",
+        "DvirHome/Lights/int/ParentsRoom",
         "DvirHome/All",
-        "DvirHome/Light/int",
-        "DvirHome/Light"
+        "DvirHome/Lights/int",
+        "DvirHome/Lights"
     ]
 }

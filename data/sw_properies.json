@@ -1,40 +1,51 @@
 {
-    "numSW": 1,
+    "numSW": 2,
     "inputType": [
-        0
+        1,
+        1
     ],
     "virtCMD": [
+        0,
         0
     ],
     "inputPins": [
-        2
+        14,
+        12
     ],
     "outputPins": [
-        1
+        5,
+        4
     ],
     "indicPins": [
         255,
         255
     ],
     "swTimeout": [
-        1000
+        120,
+        60
     ],
     "swName": [
-        "CorridorLEDs"
+        "Bed",
+        "Mirror"
     ],
     "lockdown": [
+        false,
         false
     ],
     "pwm_intense": [
-        80
+        30,
+        30
     ],
     "outputON": [
+        1,
         1
     ],
     "inputPressed": [
+        0,
         0
     ],
     "onBoot": [
-        1
+        0,
+        0
     ]
 }

@@ -2,7 +2,7 @@
 #include <myIOT2.h>
 #include <smartSwitch.h>
 
-#define NUM_SW 4
+#define NUM_SW 2
 #define JSON_DOC_SIZE 1000
 #define ACT_JSON_DOC_SIZE 800
 #define READ_PARAMTERS_FROM_FLASH true /* Flash or HardCoded Parameters */
@@ -53,34 +53,11 @@ void createTelemetry_post(uint8_t i)
 }
 void createEntity_post(uint8_t i = 0)
 {
-  // char clk[25];
   char msg[300];
   char topic[50];
-  // iot.get_timeStamp(clk);
+  DynamicJsonDocument DOC(JSON_DOC_SIZE);
 
   sprintf(topic, "%s/entity", iot.topics_sub[0]);
-
-  // SW_props sw_properties;
-  // SW_Array[i]->get_SW_props(sw_properties);
-  // sprintf(msg, "{\"numSW\":%d, \"swName\":[\"%s\"], \"inputType\":[%d], \"pwm_intense\":[%d], \"lockdown\":[%s], \
-  //               \"swTimeout\":[%d], \"inputPins\":[%d], \"outputPins\":[%d], \"indicPins\":[%d], \"virtCMD\":[%d], \
-  //               \"outputON\":[%d],\"inputPressed\":[%d],\"onBoot\":[%d]}",
-  //         sw_properties.id,
-  //         sw_properties.name,
-  //         sw_properties.type,
-  //         sw_properties.PWM_intense,
-  //         sw_properties.lockdown ? "true" : "false",
-  //         sw_properties.TO_dur / TimeFactor,
-  //         sw_properties.inpin,
-  //         sw_properties.outpin,
-  //         sw_properties.indicpin,
-  //         sw_properties.virtCMD,
-  //         sw_properties.outputON,
-  //         sw_properties.inputPressed,
-  //         sw_properties.onBoot);
-
-  // iot.pub_noTopic(msg, topic, true);
-  DynamicJsonDocument DOC(JSON_DOC_SIZE); //<JSON_DOC_SIZE> DOC;
   select_SWdefinition_src(DOC, swParameters_filename);
   serializeJson(DOC, msg);
   iot.pub_noTopic(msg, topic, true);
@@ -147,37 +124,6 @@ void extMQTT(char *incoming_msg, char *_topic)
   {
     sprintf(msg, "ver #2: %s %s", verApp, SW_Array[0]->ver);
     iot.pub_msg(msg);
-  }
-  else if (strcmp(incoming_msg, "show_params") == 0)
-  {
-    DynamicJsonDocument DOC(JSON_DOC_SIZE);
-
-    if (select_SWdefinition_src(DOC, swParameters_filename))
-    {
-      char clk[25];
-      char msg2[300];
-
-      const int mqtt_size = iot.mqtt_len - 30;
-      iot.get_timeStamp(clk, iot.now());
-      sprintf(msg2, "\n~~~~~~ %s %s ~~~~~~", iot.topics_sub[0], clk);
-      iot.pub_debug(msg2);
-
-      serializeJson(DOC, msg2);
-      uint8_t w = strlen(msg2) / mqtt_size;
-
-      for (uint8_t i = 0; i <= w; i++)
-      {
-        int x = 0;
-        char msg3[mqtt_size + 5];
-        for (int n = i * mqtt_size; n < i * mqtt_size + mqtt_size; n++)
-        {
-          msg3[x++] = msg2[n];
-        }
-        msg3[x] = '\0';
-        iot.pub_debug(msg3);
-      }
-      iot.pub_msg("[Paramters]: Published in debug");
-    }
   }
   else if (strcmp(incoming_msg, "all_off") == 0)
   {
@@ -250,9 +196,9 @@ void extMQTT(char *incoming_msg, char *_topic)
       {
         if (SW_Array[atoi(iot.inline_param[0])]->telemtryMSG.pwm < 102)
         {
-          // SW_Array[atoi(iot.inline_param[0])]->set_additional_timeout(atoi(iot.inline_param[2]), EXT_0);
-          // iot.convert_epoch2clock(atoi(iot.inline_param[2]) * TimeFactor / 1000, 0, clk);
-          // sprintf(msg, "[Timeout]: [%s] add time: [%s]", sw_properties.name, clk);
+          SW_Array[atoi(iot.inline_param[0])]->set_additional_timeout(atoi(iot.inline_param[2]), EXT_0);
+          iot.convert_epoch2clock(atoi(iot.inline_param[2]) * TimeFactor / 1000, 0, clk);
+          sprintf(msg, "[Timeout]: [%s] add time: [%s]", sw_properties.name, clk);
         }
         else
         {
@@ -262,6 +208,11 @@ void extMQTT(char *incoming_msg, char *_topic)
       }
     }
   }
+}
+void create_iot_parameters(JsonDocument &DOC)
+{
+  iot.set_pFilenames(paramterFiles, 1);
+  iot.readFlashParameters(DOC, paramterFiles[0]);
 }
 void start_iot2(JsonDocument &DOC)
 {
@@ -283,16 +234,14 @@ void start_iot2(JsonDocument &DOC)
   iot.add_pubTopic(temp);
   sprintf(temp, "%s/State", DOC["subTopic"][0] | t2[0]);
   iot.add_pubTopic(temp);
-
-  iot.set_pFilenames(paramterFiles, 1);
-  iot.readFlashParameters(DOC, paramterFiles[0]);
-
+ 
+  create_iot_parameters(DOC);
   iot.start_services(extMQTT);
 }
 
 void createSW(SW_props &sw)
 {
-  SW_Array[sw.id] = new smartSwitch();
+  SW_Array[sw.id] = new smartSwitch(true);
 
   SW_Array[sw.id]->set_id(sw.id);                                                 /* Instances counter- generally don't need to interfere */
   SW_Array[sw.id]->set_timeout(sw.TO_dur);                                        /* timeout is optional */
@@ -382,11 +331,6 @@ void post_succes_reboot()
     restoreSaved_SwState_afterReboot(); /* Read from flash activity, for restore after reboot - in case timeouts are not over */
     On_atBoot();                        /* Start Switches that need to be ON after reboot */
     createEntity_post();
-
-    // for (uint8_t i = 0; i < SW_inUse; i++)
-    // {
-    //   createEntity_post(i);
-    // }
   }
 }
 
@@ -417,16 +361,7 @@ void turnON_notifications(uint8_t i, char *msg, const char *stat, const char *tr
 void turnOFF_notifications(uint8_t i, char *msg, const char *stat, const char *trig)
 {
   char clk[25];
-  // if (SW_Array[i]->telemtryMSG.clk_end != 0)
-  // {
-  //   SW_props sw_properties;
-  //   SW_Array[i]->get_SW_props(sw_properties);
-  //   iot.convert_epoch2clock(SW_Array[i]->get_elapsed() / 1000, 0, clk);
-  // }
-  // else
-  // {
   iot.convert_epoch2clock((millis() - SW_Array[i]->telemtryMSG.clk_start) / 1000, 0, clk);
-  // }
   sprintf(msg, "[%s]: [%s] turned [%s], elapsed [%s]", trig, SW_Array[i]->name, stat, clk);
   saveActivity_file(i);
 }
@@ -461,7 +396,6 @@ void smartSW_loop()
     post_succes_reboot();
   }
 }
-
 void startService()
 {
   DynamicJsonDocument DOC(JSON_DOC_SIZE);
@@ -471,7 +405,6 @@ void startService()
 
 void setup()
 {
-  Serial.begin(115200);
   startService();
 }
 void loop()
