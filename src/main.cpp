@@ -9,7 +9,7 @@
 
 myIOT2 iot;
 smartSwitch *SW_Array[NUM_SW]{};
-const char *verApp = "smartSWApp_v0.1";
+const char *verApp = "smartSWApp_v0.2";
 
 uint8_t SW_inUse = 0;
 bool firstLoop = true;
