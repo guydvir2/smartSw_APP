@@ -9,5 +9,9 @@
         "DvirHome/All",
         "DvirHome/Lights/int",
         "DvirHome/Lights"
+    ],
+    "pubTopic": [
+        "DvirHome/Lights/int/ParentsRoom/Avail",
+        "DvirHome/Lights/int/ParentsRoom/State"
     ]
 }

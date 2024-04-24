@@ -2,14 +2,14 @@
 #include <myIOT2.h>
 #include <smartSwitch.h>
 
-#define NUM_SW 2
+#define MAX_SW 4
 #define JSON_DOC_SIZE 1000
 #define ACT_JSON_DOC_SIZE 800
 #define READ_PARAMTERS_FROM_FLASH true /* Flash or HardCoded Parameters */
 
 myIOT2 iot;
-smartSwitch *SW_Array[NUM_SW]{};
-const char *verApp = "smartSWApp_v0.2";
+smartSwitch *SW_Array[MAX_SW]{};
+const char *verApp = "smartSWApp_v0.3";
 
 uint8_t SW_inUse = 0;
 bool firstLoop = true;
@@ -17,24 +17,57 @@ bool bootSucceeded = false;
 
 #include "readP.h"
 
-void getPWMval(uint8_t i, char msg[])
+// +++++++++++++ Start Notifications +++++++++++++
+void compose_PWMvalue(uint8_t i, char msg[])
 {
   SW_props sw_properties;
   SW_Array[i]->get_SW_props(sw_properties);
-  if (sw_properties.PWM_intense && SW_Array[i]->get_SWstate())
+
+  if (sw_properties.PWM_intense && SW_Array[i]->get_SWstate()) /* Current ON power */
   {
     sprintf(msg, ", Power: [%d%%]", SW_Array[i]->telemtryMSG.pwm);
   }
-  else if (sw_properties.PWM_intense && !SW_Array[i]->get_SWstate())
+  else if (sw_properties.PWM_intense && !SW_Array[i]->get_SWstate()) /* When Off - power settings */
   {
     sprintf(msg, ", Power: [%d%%]", sw_properties.PWM_intense);
   }
   else
   {
-    strcpy(msg, "");
+    strcpy(msg, ""); /* Not PWM switch */
   }
 }
-void createTelemetry_post(uint8_t i)
+void compose_turnON(uint8_t i, char *msg, const char *stat, const char *trig)
+{
+  char msg2[50];
+  compose_PWMvalue(i, msg2);
+
+  if (SW_Array[i]->telemtryMSG.clk_end != 0)
+  {
+    char clk[20];
+    iot.convert_epoch2clock(SW_Array[i]->get_timeout() / 1000, 0, clk);
+    if (SW_Array[i]->get_elapsed() < 1000)
+    {
+      sprintf(msg, "[%s]: [%s] turned [%s], timeout: [%s] %s", trig, SW_Array[i]->name, stat, clk, msg2);
+    }
+    else
+    {
+      sprintf(msg, "[%s]: [%s] updated timeout: [%s]", trig, SW_Array[i]->name, clk);
+    }
+  }
+  else
+  {
+    sprintf(msg, "[%s]: [%s] turned [%s] %s", trig, SW_Array[i]->name, stat, msg2);
+  }
+  saveActivity_file(i);
+}
+void compose_turnOFF(uint8_t i, char *msg, const char *stat, const char *trig)
+{
+  char clk[25];
+  iot.convert_epoch2clock((millis() - SW_Array[i]->telemtryMSG.clk_start) / 1000, 0, clk);
+  sprintf(msg, "[%s]: [%s] turned [%s], elapsed [%s]", trig, SW_Array[i]->name, stat, clk);
+  saveActivity_file(i);
+}
+void update_telemetryTopic(uint8_t i)
 {
   char clk[25];
   char msg[300];
@@ -51,7 +84,7 @@ void createTelemetry_post(uint8_t i)
 
   iot.pub_noTopic(msg, topic, true);
 }
-void createEntity_post(uint8_t i = 0)
+void update_EntityTopic(uint8_t i = 0) /* Post an entity properties to a topic */
 {
   char msg[300];
   char topic[50];
@@ -62,7 +95,9 @@ void createEntity_post(uint8_t i = 0)
   serializeJson(DOC, msg);
   iot.pub_noTopic(msg, topic, true);
 }
+// +++++++++++++ End Notifications +++++++++++++
 
+// +++++++++++++ Start IoT +++++++++++++
 void extMQTT(char *incoming_msg, char *_topic)
 {
   char msg[270];
@@ -80,7 +115,7 @@ void extMQTT(char *incoming_msg, char *_topic)
       char clk3[20];
       char clk4[20];
 
-      getPWMval(i, sss);
+      compose_PWMvalue(i, sss);
       iot.convert_epoch2clock(SW_Array[i]->get_timeout() / 1000, 0, clk3);
       const char *trigs[] = {"Button", "Timeout", "MQTT", "atBoot", "Resume"};
 
@@ -209,81 +244,26 @@ void extMQTT(char *incoming_msg, char *_topic)
     }
   }
 }
-void create_iot_parameters(JsonDocument &DOC)
+void start_iot2(JsonDocument &DOC)
 {
   iot.set_pFilenames(paramterFiles, 1);
   iot.readFlashParameters(DOC, paramterFiles[0]);
-}
-void start_iot2(JsonDocument &DOC)
-{
-  /* Default values for topics */
-  const char *t[] = {"DvirHome/Messages", "DvirHome/log", "DvirHome/debug"};
-  const char *t2[] = {"DvirHome/Device", "DvirHome/All"};
-
-  for (uint8_t i = 0; i < getArraysize(DOC, "gen_pubTopic", sizeof(t) / sizeof(t[0])); i++)
-  {
-    iot.add_gen_pubTopic(DOC["gen_pubTopic"][i] | t[i]);
-  }
-  for (uint8_t i = 0; i < getArraysize(DOC, "subTopic", sizeof(t2) / sizeof(t2[0])); i++)
-  {
-    iot.add_subTopic(DOC["subTopic"][i] | t2[i]);
-  }
-
-  char temp[MAX_TOPIC_SIZE];
-  sprintf(temp, "%s/Avail", DOC["subTopic"][0] | t2[0]);
-  iot.add_pubTopic(temp);
-  sprintf(temp, "%s/State", DOC["subTopic"][0] | t2[0]);
-  iot.add_pubTopic(temp);
- 
-  create_iot_parameters(DOC);
   iot.start_services(extMQTT);
 }
-
-void createSW(SW_props &sw)
+void getIoT_defs(JsonDocument &DOC)
 {
-  SW_Array[sw.id] = new smartSwitch(true);
-
-  SW_Array[sw.id]->set_id(sw.id);                                                 /* Instances counter- generally don't need to interfere */
-  SW_Array[sw.id]->set_timeout(sw.TO_dur);                                        /* timeout is optional */
-  SW_Array[sw.id]->set_name(sw.name);                                             /* Optional */
-  SW_Array[sw.id]->set_input(sw.inpin, sw.type, sw.inputPressed);                 /* 2-Toggle; 1-Button */
-  SW_Array[sw.id]->set_output(sw.outpin, sw.PWM_intense, sw.outputON, sw.onBoot); /* Can be Relay, PWM, or Virual */
-  SW_Array[sw.id]->set_indiction(sw.indicpin, sw.outputON);                       /* Optional */
-  SW_Array[sw.id]->set_useLockdown(sw.lockdown);                                  /* Optional */
-
-  SW_Array[sw.id]->print_preferences();
-  SW_inUse++;
+  update_topics_iot(DOC, swTopics_filename); /* Stored in flash or hard-coded */
+  start_iot2(DOC);                           /* iot2 should start always, regardless success of SW */
 }
-void build_SWdefinitions(JsonDocument &DOC)
-{
-  uint8_t numSW = DOC["numSW"] | 0;
-  uint8_t m = numSW < NUM_SW ? numSW : NUM_SW;
+// +++++++++++++ End IoT +++++++++++++
 
-  for (uint8_t n = 0; n < m; n++)
-  {
-    SW_props sw;
-    sw.id = n;
-    sw.type = DOC["inputType"][n] | 0;
-    sw.inpin = DOC["inputPins"][n] | 0;
-    sw.outpin = DOC["outputPins"][n] | 0;
-    sw.indicpin = DOC["indicPins"][n] | 0;
-    sw.TO_dur = DOC["swTimeout"][n] | 0;
-
-    sw.name = DOC["swName"][n] | "NO_NAME";
-    sw.lockdown = DOC["lockdown"][n] | 0;
-
-    sw.PWM_intense = DOC["pwm_intense"][n] | 0;
-    sw.virtCMD = DOC["virtCMD"][n] | 0;
-    sw.timeout = sw.TO_dur > 0;
-    sw.outputON = DOC["outputON"][n] | 0;
-    sw.inputPressed = DOC["inputPressed"][n] | 0;
-    sw.onBoot = DOC["onBoot"][n] | 0;
-    createSW(sw);
-  }
-}
-
+// +++++++++++++ Start Switch +++++++++++++
+// ~~ Post Boot/reset behavious ~~
 void restoreSaved_SwState_afterReboot()
 {
+  /* When a reset cmd is sent via MQTT most likely GPIO will be still ON at BOOT
+  So behaviour is not as expected as if it had a power down reboot
+  */
   DynamicJsonDocument DOC(ACT_JSON_DOC_SIZE);
 
   if (readActivity_file(DOC))
@@ -294,11 +274,11 @@ void restoreSaved_SwState_afterReboot()
       {
         unsigned long _t = DOC["clk_start"][i].as<unsigned long>() /* Epoch Clock in seconds */ + DOC["clk_end"][i].as<unsigned long>() * 0.001 /* Convert to seconds */;
 
-        if (DOC["clk_end"][i].as<unsigned long>() == 0)
+        if (DOC["clk_end"][i].as<unsigned long>() == 0) /* Was ON without timeout */
         {
           SW_Array[i]->turnON_cb(EXT_2);
         }
-        else if (_t > iot.now())
+        else if (_t > iot.now()) /* Was ON & Time left on timeout */
         {
           int tempTO = (_t - iot.now()) / (TimeFactor == MINUTES ? 60 : 1); /* correction- minutes or seconds */
           SW_Array[i]->turnON_cb(EXT_2, tempTO, DOC["pwm"][i].as<uint8_t>());
@@ -330,49 +310,71 @@ void post_succes_reboot()
     firstLoop = false;
     restoreSaved_SwState_afterReboot(); /* Read from flash activity, for restore after reboot - in case timeouts are not over */
     On_atBoot();                        /* Start Switches that need to be ON after reboot */
-    createEntity_post();
+    update_EntityTopic();               /* Placed here to be sure that MQTT will be sent succefully */
   }
 }
 
-void turnON_notifications(uint8_t i, char *msg, const char *stat, const char *trig)
+// ~~ Create Switch Entity ~~
+void createSW(SW_props &sw)
 {
-  char msg2[50];
-  getPWMval(i, msg2);
+  SW_Array[sw.id] = new smartSwitch(true);
 
-  if (SW_Array[i]->telemtryMSG.clk_end != 0)
-  {
-    char clk[20];
-    iot.convert_epoch2clock(SW_Array[i]->get_timeout() / 1000, 0, clk);
-    if (SW_Array[i]->get_elapsed() < 1000)
-    {
-      sprintf(msg, "[%s]: [%s] turned [%s], timeout: [%s] %s", trig, SW_Array[i]->name, stat, clk, msg2);
-    }
-    else
-    {
-      sprintf(msg, "[%s]: [%s] updated timeout: [%s]", trig, SW_Array[i]->name, clk);
-    }
-  }
-  else
-  {
-    sprintf(msg, "[%s]: [%s] turned [%s] %s", trig, SW_Array[i]->name, stat, msg2);
-  }
-  saveActivity_file(i);
+  SW_Array[sw.id]->set_id(sw.id);                                                 /* Instances counter- generally don't need to interfere */
+  SW_Array[sw.id]->set_timeout(sw.TO_dur);                                        /* timeout is optional */
+  SW_Array[sw.id]->set_name(sw.name);                                             /* Optional */
+  SW_Array[sw.id]->set_input(sw.inpin, sw.type, sw.inputPressed);                 /* 2-Toggle; 1-Button */
+  SW_Array[sw.id]->set_output(sw.outpin, sw.PWM_intense, sw.outputON, sw.onBoot); /* Can be Relay, PWM, or Virtual */
+  SW_Array[sw.id]->set_indiction(sw.indicpin, sw.indicON);                        /* Optional */
+  SW_Array[sw.id]->set_useLockdown(sw.lockdown);                                  /* Optional */
+
+  SW_Array[sw.id]->print_preferences();
+  SW_inUse++;
 }
-void turnOFF_notifications(uint8_t i, char *msg, const char *stat, const char *trig)
+void build_SWdefinitions(JsonDocument &DOC)
 {
-  char clk[25];
-  iot.convert_epoch2clock((millis() - SW_Array[i]->telemtryMSG.clk_start) / 1000, 0, clk);
-  sprintf(msg, "[%s]: [%s] turned [%s], elapsed [%s]", trig, SW_Array[i]->name, stat, clk);
-  saveActivity_file(i);
-}
+  uint8_t numSW = DOC["numSW"] | 0;
+  uint8_t m = numSW < MAX_SW ? numSW : MAX_SW;
 
+  for (uint8_t n = 0; n < m; n++)
+  {
+    SW_props sw;
+
+    sw.id = n;
+    sw.type = DOC["inputType"][n] | 0;
+    sw.inpin = DOC["inputPins"][n] | 0;
+    sw.outpin = DOC["outputPins"][n] | 0;
+    sw.indicpin = DOC["indicPins"][n] | 0;
+    sw.TO_dur = DOC["swTimeout"][n] | 0;
+
+    sw.name = DOC["swName"][n] | "NO_NAME";
+    sw.lockdown = DOC["lockdown"][n] | 0;
+
+    sw.PWM_intense = DOC["pwm_intense"][n] | 0;
+    sw.virtCMD = DOC["virtCMD"][n] | 0;
+    sw.timeout = sw.TO_dur > 0;
+    sw.outputON = DOC["outputON"][n] | 0;
+    sw.indicON = DOC["indicON"][n] | 0;
+    sw.inputPressed = DOC["inputPressed"][n] | 0;
+    sw.onBoot = DOC["onBoot"][n] | 0;
+
+    createSW(sw);
+  }
+}
+void getSW_defs(JsonDocument &DOC)
+{
+  if (select_SWdefinition_src(DOC, swParameters_filename)) /* Stored in flash or hard-coded */
+  {
+    build_SWdefinitions(DOC);
+    bootSucceeded = true;
+  }
+}
 void smartSW_loop()
 {
   if (bootSucceeded)
   {
     for (uint8_t i = 0; i < SW_inUse; i++)
     {
-      if (SW_Array[i]->loop())
+      if (SW_Array[i]->loop()) /* Switch change physical state */
       {
         char newmsg[200];
         const char *state[] = {"off", "on"};
@@ -382,30 +384,28 @@ void smartSW_loop()
 
         if (SW_Array[i]->telemtryMSG.state == SW_ON) /*Turn on */
         {
-          turnON_notifications(i, newmsg, state[SW_Array[i]->telemtryMSG.state], trigs[SW_Array[i]->telemtryMSG.reason]);
+          compose_turnON(i, newmsg, state[SW_Array[i]->telemtryMSG.state], trigs[SW_Array[i]->telemtryMSG.reason]); /* Build MSG */
         }
         else if (SW_Array[i]->telemtryMSG.state == SW_OFF) /* Turn off */
         {
-          turnOFF_notifications(i, newmsg, state[SW_Array[i]->telemtryMSG.state], trigs[SW_Array[i]->telemtryMSG.reason]);
+          compose_turnOFF(i, newmsg, state[SW_Array[i]->telemtryMSG.state], trigs[SW_Array[i]->telemtryMSG.reason]); /* Build MSG */
         }
         iot.pub_msg(newmsg);
-        createTelemetry_post(i);
-        SW_Array[i]->clear_newMSG();
+        update_telemetryTopic(i);    /* update telemetry topic */
+        SW_Array[i]->clear_newMSG(); /* clear flag */
       }
     }
-    post_succes_reboot();
+    post_succes_reboot(); // only once
   }
 }
-void startService()
-{
-  DynamicJsonDocument DOC(JSON_DOC_SIZE);
-  init_SW(DOC);
-  init_iot2(DOC);
-}
+// +++++++++++++ End Switch +++++++++++++
 
 void setup()
 {
-  startService();
+  Serial.begin(115200);
+  DynamicJsonDocument DOC(JSON_DOC_SIZE);
+  getSW_defs(DOC);
+  getIoT_defs(DOC);
 }
 void loop()
 {
