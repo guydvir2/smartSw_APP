@@ -3,7 +3,7 @@
 #include <smartSwitch.h>
 
 #define MAX_SW 4
-#define JSON_DOC_SIZE 1000
+#define JSON_DOC_SIZE 1400
 #define ACT_JSON_DOC_SIZE 800
 #define READ_PARAMTERS_FROM_FLASH true /* Flash or HardCoded Parameters */
 
@@ -12,8 +12,8 @@ smartSwitch *SW_Array[MAX_SW]{};
 const char *verApp = "smartSWApp_v0.3";
 
 uint8_t SW_inUse = 0;
-bool firstLoop = true;
-bool bootSucceeded = false;
+bool SW_DEFS_OK = false;
+bool FIRST_SUCCESS_BOOT = true;
 
 #include "readP.h"
 
@@ -91,7 +91,7 @@ void update_EntityTopic(uint8_t i = 0) /* Post an entity properties to a topic *
   DynamicJsonDocument DOC(JSON_DOC_SIZE);
 
   sprintf(topic, "%s/entity", iot.topics_sub[0]);
-  select_SWdefinition_src(DOC, swParameters_filename);
+  read_SW_Topics(DOC, paramterFiles[2]);
   serializeJson(DOC, msg);
   iot.pub_noTopic(msg, topic, true);
 }
@@ -246,15 +246,12 @@ void extMQTT(char *incoming_msg, char *_topic)
 }
 void start_iot2(JsonDocument &DOC)
 {
+  update_topics_iot(DOC, paramterFiles[1]); /* Stored in flash or hard-coded */
   iot.set_pFilenames(paramterFiles, 1);
   iot.readFlashParameters(DOC, paramterFiles[0]);
   iot.start_services(extMQTT);
 }
-void getIoT_defs(JsonDocument &DOC)
-{
-  update_topics_iot(DOC, swTopics_filename); /* Stored in flash or hard-coded */
-  start_iot2(DOC);                           /* iot2 should start always, regardless success of SW */
-}
+
 // +++++++++++++ End IoT +++++++++++++
 
 // +++++++++++++ Start Switch +++++++++++++
@@ -270,9 +267,10 @@ void restoreSaved_SwState_afterReboot()
   {
     for (uint8_t i = 0; i < SW_inUse; i++)
     {
-      if ((DOC["state"][i].as<uint8_t>() | SW_OFF) == SW_ON && (DOC["lockdown"][i].as<bool>() | false) == false)
+      if (DOC["state"][i].as<uint8_t>() == SW_ON && DOC["lockdown"][i].as<bool>() == false)
       {
-        unsigned long _t = DOC["clk_start"][i].as<unsigned long>() /* Epoch Clock in seconds */ + DOC["clk_end"][i].as<unsigned long>() * 0.001 /* Convert to seconds */;
+        unsigned long _t = DOC["clk_start"][i].as<unsigned long>() /* Epoch Clock in seconds */
+                           + DOC["clk_end"][i].as<unsigned long>() * 0.001 /* Convert to seconds */;
 
         if (DOC["clk_end"][i].as<unsigned long>() == 0) /* Was ON without timeout */
         {
@@ -305,9 +303,9 @@ void On_atBoot()
 }
 void post_succes_reboot()
 {
-  if (firstLoop && iot.isMqttConnected() && iot.now() > 1640803233)
+  if (FIRST_SUCCESS_BOOT && iot.isMqttConnected() && iot.now() > 1640803233)
   {
-    firstLoop = false;
+    FIRST_SUCCESS_BOOT = false;
     restoreSaved_SwState_afterReboot(); /* Read from flash activity, for restore after reboot - in case timeouts are not over */
     On_atBoot();                        /* Start Switches that need to be ON after reboot */
     update_EntityTopic();               /* Placed here to be sure that MQTT will be sent succefully */
@@ -315,7 +313,7 @@ void post_succes_reboot()
 }
 
 // ~~ Create Switch Entity ~~
-void createSW(SW_props &sw)
+void init_SW(SW_props &sw)
 {
   SW_Array[sw.id] = new smartSwitch(true);
 
@@ -332,7 +330,8 @@ void createSW(SW_props &sw)
 }
 void build_SWdefinitions(JsonDocument &DOC)
 {
-  uint8_t numSW = DOC["numSW"] | 0;
+  uint8_t numSW = 0;
+  numSW = DOC["numSW"];
   uint8_t m = numSW < MAX_SW ? numSW : MAX_SW;
 
   for (uint8_t n = 0; n < m; n++)
@@ -340,37 +339,44 @@ void build_SWdefinitions(JsonDocument &DOC)
     SW_props sw;
 
     sw.id = n;
-    sw.type = DOC["inputType"][n] | 0;
-    sw.inpin = DOC["inputPins"][n] | 0;
-    sw.outpin = DOC["outputPins"][n] | 0;
-    sw.indicpin = DOC["indicPins"][n] | 0;
-    sw.TO_dur = DOC["swTimeout"][n] | 0;
-
-    sw.name = DOC["swName"][n] | "NO_NAME";
-    sw.lockdown = DOC["lockdown"][n] | 0;
-
-    sw.PWM_intense = DOC["pwm_intense"][n] | 0;
-    sw.virtCMD = DOC["virtCMD"][n] | 0;
+    sw.type = DOC["inputType"][n];
+    sw.inpin = DOC["inputPins"][n];
+    sw.outpin = DOC["outputPins"][n];
+    sw.indicpin = DOC["indicPins"][n];
+    sw.TO_dur = DOC["swTimeout"][n];
+    sw.lockdown = DOC["lockdown"][n];
+    sw.PWM_intense = DOC["pwm_intense"][n];
+    sw.virtCMD = DOC["virtCMD"][n];
     sw.timeout = sw.TO_dur > 0;
-    sw.outputON = DOC["outputON"][n] | 0;
-    sw.indicON = DOC["indicON"][n] | 0;
-    sw.inputPressed = DOC["inputPressed"][n] | 0;
-    sw.onBoot = DOC["onBoot"][n] | 0;
+    sw.outputON = DOC["outputON"][n];
+    sw.indicON = DOC["indicON"][n];
+    sw.inputPressed = DOC["inputPressed"][n];
+    sw.onBoot = DOC["onBoot"][n];
 
-    createSW(sw);
+    const char *_name = DOC["swName"][n];
+    if (_name != nullptr)
+    {
+      sw.name = DOC["swName"][n];
+    }
+    else
+    {
+      sw.name = "NameERR";
+    }
+
+    init_SW(sw);
   }
 }
-void getSW_defs(JsonDocument &DOC)
+void start_smartSW_defs(JsonDocument &DOC)
 {
-  if (select_SWdefinition_src(DOC, swParameters_filename)) /* Stored in flash or hard-coded */
+  if (read_SW_Topics(DOC, paramterFiles[2])) /* Stored in flash or hard-coded */
   {
     build_SWdefinitions(DOC);
-    bootSucceeded = true;
+    SW_DEFS_OK = true;
   }
 }
 void smartSW_loop()
 {
-  if (bootSucceeded)
+  if (SW_DEFS_OK)
   {
     for (uint8_t i = 0; i < SW_inUse; i++)
     {
@@ -404,8 +410,8 @@ void setup()
 {
   Serial.begin(115200);
   DynamicJsonDocument DOC(JSON_DOC_SIZE);
-  getSW_defs(DOC);
-  getIoT_defs(DOC);
+  start_smartSW_defs(DOC);
+  start_iot2(DOC);
 }
 void loop()
 {
