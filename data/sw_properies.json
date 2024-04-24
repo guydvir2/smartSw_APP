@@ -2,26 +2,26 @@
     "numSW": 2,
     "inputType": [
         1,
-        1
+        0
     ],
     "virtCMD": [
         0,
         0
     ],
     "inputPins": [
-        14,
+        0,
         12
     ],
     "outputPins": [
         5,
-        4
+        12
     ],
     "indicPins": [
-        255,
+        2,
         255
     ],
     "swTimeout": [
-        120,
+        10,
         60
     ],
     "swName": [
@@ -33,7 +33,7 @@
         false
     ],
     "pwm_intense": [
-        30,
+        0,
         30
     ],
     "outputON": [
@@ -41,7 +41,7 @@
         1
     ],
     "indicON": [
-        1,
+        0,
         1
     ],
     "inputPressed": [
@@ -50,6 +50,6 @@
     ],
     "onBoot": [
         0,
-        0
+        1
     ]
 }

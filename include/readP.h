@@ -1,7 +1,5 @@
-const char *paramterFiles[] = {"/iot_config.json"};
-const char *swTopics_filename = "/sw_topics.json";
 const char *savedActivity_filename = "/activity.json";
-const char *swParameters_filename = "/sw_properies.json";
+const char *paramterFiles[] = {"/iot_config.json", "/sw_topics.json", "/sw_properies.json"};
 
 uint8_t readParameters_hardCoded(JsonDocument &DOC)
 {
@@ -30,6 +28,7 @@ uint8_t readTopics_hardCoded(JsonDocument &DOC)
   DeserializationError err = deserializeJson(DOC, params);
   return err.code();
 }
+
 void readTopics_flash(JsonDocument &DOC, const char *filename)
 {
   bool a = iot.readJson_inFlash(DOC, filename);
@@ -48,7 +47,6 @@ void update_topics_iot(JsonDocument &DOC, const char *file)
   if (READ_PARAMTERS_FROM_FLASH)
   {
     readTopics_flash(DOC, file);
-    serializeJsonPretty(DOC,Serial);
   }
   else
   {
@@ -68,11 +66,18 @@ void update_topics_iot(JsonDocument &DOC, const char *file)
     iot.add_pubTopic(DOC["pubTopic"][t]);
   }
 }
-bool select_SWdefinition_src(JsonDocument &DOC, const char *file)
+bool read_SW_Topics(JsonDocument &DOC, const char *file)
 {
   if (READ_PARAMTERS_FROM_FLASH)
   {
-    return iot.readJson_inFlash(DOC, file);
+    if (!iot.readJson_inFlash(DOC, file))
+    {
+      return readParameters_hardCoded(DOC) == 0;
+    }
+    else
+    {
+      return 1;
+    }
   }
   else
   {
@@ -88,17 +93,8 @@ void Telemtry2JSON(JsonDocument &DOC, uint8_t i)
   DOC["reason"][i] = SW_Array[i]->telemtryMSG.reason;
   DOC["pressCount"][i] = SW_Array[i]->telemtryMSG.pressCount;
   DOC["clk_end"][i] = SW_Array[i]->telemtryMSG.clk_end;
-
-  if (SW_Array[i]->telemtryMSG.state) /* if ON, save clk else store 0 */
-  {
-    DOC["clk_start"][i] = iot.now();
-  }
-  else
-  {
-    DOC["clk_start"][i] = 0;
-  }
-
   DOC["indic_state"][i] = SW_Array[i]->telemtryMSG.indic_state;
+  SW_Array[i]->telemtryMSG.state ? DOC["clk_start"][i] = iot.now() : DOC["clk_start"][i] = 0; /* if ON, save clk else store 0 */
 }
 
 bool readActivity_file(JsonDocument &DOC)
