@@ -3,7 +3,7 @@
 #include <smartSwitch.h>
 
 #define MAX_SW 4
-#define JSON_DOC_SIZE 1000
+#define JSON_DOC_SIZE 1400
 #define ACT_JSON_DOC_SIZE 800
 #define READ_PARAMTERS_FROM_FLASH true /* Flash or HardCoded Parameters */
 
