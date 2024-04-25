@@ -1,7 +1,6 @@
 {
-    "numSW": 2,
+    "numSW": 1,
     "inputType": [
-        1,
         0
     ],
     "virtCMD": [
@@ -9,47 +8,36 @@
         0
     ],
     "inputPins": [
-        0,
-        12
+        255
     ],
     "outputPins": [
-        5,
-        12
+        4
     ],
     "indicPins": [
-        2,
         255
     ],
     "swTimeout": [
-        10,
-        60
+        720
     ],
     "swName": [
-        "Bed",
-        "Mirror"
+        "LedStrip"
     ],
     "lockdown": [
-        false,
         false
     ],
     "pwm_intense": [
-        0,
-        30
+        90
     ],
     "outputON": [
-        1,
         1
     ],
     "indicON": [
-        0,
-        1
+        0
     ],
     "inputPressed": [
-        0,
         0
     ],
     "onBoot": [
-        0,
-        1
+        0
     ]
 }
