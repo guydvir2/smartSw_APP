@@ -5,7 +5,10 @@
 #define MAX_SW 4
 #define JSON_DOC_SIZE 1400
 #define ACT_JSON_DOC_SIZE 800
-#define READ_PARAMTERS_FROM_FLASH true /* Flash or HardCoded Parameters */
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#define READ_PARAMTERS_FROM_FLASH false /* Flash or HardCoded Parameters */
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 myIOT2 iot;
 smartSwitch *SW_Array[MAX_SW]{};
@@ -17,7 +20,7 @@ bool FIRST_SUCCESS_BOOT = true;
 
 #include "readP.h"
 
-// +++++++++++++ Start Notifications +++++++++++++
+// +++++++++++++ Notifications - Start +++++++++++++
 void compose_PWMvalue(uint8_t i, char msg[])
 {
   SW_props sw_properties;
@@ -95,7 +98,7 @@ void update_EntityTopic(uint8_t i = 0) /* Post an entity properties to a topic *
   serializeJson(DOC, msg);
   iot.pub_noTopic(msg, topic, true);
 }
-// +++++++++++++ End Notifications +++++++++++++
+// +++++++++++++ Notifications - End +++++++++++++
 
 // +++++++++++++ Start IoT +++++++++++++
 void extMQTT(char *incoming_msg, char *_topic)
@@ -152,7 +155,7 @@ void extMQTT(char *incoming_msg, char *_topic)
   }
   else if (strcmp(incoming_msg, "help2") == 0)
   {
-    sprintf(msg, "help #2:all_off, {[i],on,[timeout],[pwm_percentage]},{[i],off}, {[i], add_time,[timeout]}, {[i], remain}, {[i], timeout}, {[i], elapsed}, {[i], show_params}");
+    sprintf(msg, "help #2:all_off, {[i],on,[timeout],[pwm_percentage]},{[i],off}, {[i], add_time,[timeout]}, {[i], remain}, {[i], timeout}, {[i], elapsed}");
     iot.pub_msg(msg);
   }
   else if (strcmp(incoming_msg, "ver2") == 0)
@@ -176,70 +179,73 @@ void extMQTT(char *incoming_msg, char *_topic)
       SW_props sw_properties;
       SW_Array[atoi(iot.inline_param[0])]->get_SW_props(sw_properties);
 
-      if (strcmp(iot.inline_param[1], "on") == 0)
+      if (!sw_properties.virtCMD) // VirtCMD is not relevant for following 
       {
-        if (iot.num_p > 3)
-        { /* PWM */
-          SW_Array[atoi(iot.inline_param[0])]->turnON_cb(EXT_0, atoi(iot.inline_param[2]), atoi(iot.inline_param[3]));
-        }
-        else if (iot.num_p > 2)
-        { /* NO -PWM with timeout */
-          SW_Array[atoi(iot.inline_param[0])]->turnON_cb(EXT_0, atoi(iot.inline_param[2]));
-        }
-        else if (iot.num_p > 1)
-        { /* NO -PWM with timeout */
-          SW_Array[atoi(iot.inline_param[0])]->turnON_cb(EXT_0);
-        }
-      }
-      else if (strcmp(iot.inline_param[1], "off") == 0)
-      {
-        SW_Array[atoi(iot.inline_param[0])]->turnOFF_cb(EXT_0);
-      }
-      else if (strcmp(iot.inline_param[1], "remain") == 0)
-      {
-        iot.convert_epoch2clock(SW_Array[atoi(iot.inline_param[0])]->get_remain_time() / 1000, 0, clk);
-        sprintf(msg, "[Timeout]: [%s] remain: [%s]", sw_properties.name, clk);
-        iot.pub_msg(msg);
-      }
-      else if (strcmp(iot.inline_param[1], "elapsed") == 0)
-      {
-        iot.convert_epoch2clock(SW_Array[atoi(iot.inline_param[0])]->get_elapsed() / 1000, 0, clk);
-        sprintf(msg, "[Timeout]: [%s] elapsed: [%s]", sw_properties.name, clk);
-        iot.pub_msg(msg);
-      }
-      else if (strcmp(iot.inline_param[1], "timeout") == 0)
-      {
-        iot.convert_epoch2clock(SW_Array[atoi(iot.inline_param[0])]->get_timeout() / 1000, 0, clk);
-        sprintf(msg, "[Timeout]: [%s] Current: [%s]", sw_properties.name, clk);
-        iot.pub_msg(msg);
-      }
-      else if (strcmp(iot.inline_param[1], "add_time") == 0)
-      {
-        if (SW_Array[atoi(iot.inline_param[0])]->useTimeout())
+        if (strcmp(iot.inline_param[1], "on") == 0)
         {
-          SW_Array[atoi(iot.inline_param[0])]->set_additional_timeout(atoi(iot.inline_param[2]), EXT_0);
-          iot.convert_epoch2clock(atoi(iot.inline_param[2]) * TimeFactor / 1000, 0, clk);
-          sprintf(msg, "[Timeout]: [%s] add time: [%s]", sw_properties.name, clk);
+          if (iot.num_p > 3)
+          { /* PWM */
+            SW_Array[atoi(iot.inline_param[0])]->turnON_cb(EXT_0, atoi(iot.inline_param[2]), atoi(iot.inline_param[3]));
+          }
+          else if (iot.num_p > 2)
+          { /* NO -PWM with timeout */
+            SW_Array[atoi(iot.inline_param[0])]->turnON_cb(EXT_0, atoi(iot.inline_param[2]));
+          }
+          else if (iot.num_p > 1)
+          { /* NO -PWM with timeout */
+            SW_Array[atoi(iot.inline_param[0])]->turnON_cb(EXT_0);
+          }
         }
-        else
+        else if (strcmp(iot.inline_param[1], "off") == 0)
         {
-          sprintf(msg, "[Timeout]: [SW#%d] does not use timeout", atoi(iot.inline_param[0]));
+          SW_Array[atoi(iot.inline_param[0])]->turnOFF_cb(EXT_0);
         }
-        iot.pub_msg(msg);
-      }
-      else if (strcmp(iot.inline_param[1], "pow") == 0)
-      {
-        if (SW_Array[atoi(iot.inline_param[0])]->telemtryMSG.pwm < 102)
+        else if (strcmp(iot.inline_param[1], "remain") == 0)
         {
-          SW_Array[atoi(iot.inline_param[0])]->set_additional_timeout(atoi(iot.inline_param[2]), EXT_0);
-          iot.convert_epoch2clock(atoi(iot.inline_param[2]) * TimeFactor / 1000, 0, clk);
-          sprintf(msg, "[Timeout]: [%s] add time: [%s]", sw_properties.name, clk);
+          iot.convert_epoch2clock(SW_Array[atoi(iot.inline_param[0])]->get_remain_time() / 1000, 0, clk);
+          sprintf(msg, "[Timeout]: [%s] remain: [%s]", sw_properties.name, clk);
+          iot.pub_msg(msg);
         }
-        else
+        else if (strcmp(iot.inline_param[1], "elapsed") == 0)
         {
-          sprintf(msg, "[Timeout]: [SW#%d] does not use PWM", atoi(iot.inline_param[0]));
+          iot.convert_epoch2clock(SW_Array[atoi(iot.inline_param[0])]->get_elapsed() / 1000, 0, clk);
+          sprintf(msg, "[Timeout]: [%s] elapsed: [%s]", sw_properties.name, clk);
+          iot.pub_msg(msg);
         }
-        iot.pub_msg(msg);
+        else if (strcmp(iot.inline_param[1], "timeout") == 0)
+        {
+          iot.convert_epoch2clock(SW_Array[atoi(iot.inline_param[0])]->get_timeout() / 1000, 0, clk);
+          sprintf(msg, "[Timeout]: [%s] Current: [%s]", sw_properties.name, clk);
+          iot.pub_msg(msg);
+        }
+        else if (strcmp(iot.inline_param[1], "add_time") == 0)
+        {
+          if (SW_Array[atoi(iot.inline_param[0])]->useTimeout())
+          {
+            SW_Array[atoi(iot.inline_param[0])]->set_additional_timeout(atoi(iot.inline_param[2]), EXT_0);
+            iot.convert_epoch2clock(atoi(iot.inline_param[2]) * TimeFactor / 1000, 0, clk);
+            sprintf(msg, "[Timeout]: [%s] add time: [%s]", sw_properties.name, clk);
+          }
+          else
+          {
+            sprintf(msg, "[Timeout]: [SW#%d] does not use timeout", atoi(iot.inline_param[0]));
+          }
+          iot.pub_msg(msg);
+        }
+        else if (strcmp(iot.inline_param[1], "pow") == 0)
+        {
+          if (SW_Array[atoi(iot.inline_param[0])]->telemtryMSG.pwm < 102)
+          {
+            SW_Array[atoi(iot.inline_param[0])]->set_additional_timeout(atoi(iot.inline_param[2]), EXT_0);
+            iot.convert_epoch2clock(atoi(iot.inline_param[2]) * TimeFactor / 1000, 0, clk);
+            sprintf(msg, "[Timeout]: [%s] add time: [%s]", sw_properties.name, clk);
+          }
+          else
+          {
+            sprintf(msg, "[Timeout]: [SW#%d] does not use PWM", atoi(iot.inline_param[0]));
+          }
+          iot.pub_msg(msg);
+        }
       }
     }
   }
@@ -251,7 +257,6 @@ void start_iot2(JsonDocument &DOC)
   iot.readFlashParameters(DOC, paramterFiles[0]);
   iot.start_services(extMQTT);
 }
-
 // +++++++++++++ End IoT +++++++++++++
 
 // +++++++++++++ Start Switch +++++++++++++
@@ -311,6 +316,25 @@ void post_succes_reboot()
     update_EntityTopic();               /* Placed here to be sure that MQTT will be sent succefully */
   }
 }
+void virtCMD_cb(uint8_t SWn, uint8_t cmdn)
+{
+  VirtTopic Vtopic;
+  StaticJsonDocument<500> DOC;
+
+  Vtopic.SWn = SWn;
+  Vtopic.CMDn = cmdn;
+  getVirtCMD(DOC, paramterFiles[3], Vtopic);
+  // Serial.print("SWn: ");
+  // Serial.println(SWn);
+  // Serial.print("cmdn: ");
+  // Serial.println(cmdn);
+
+  // Serial.print("TOPIC: ");
+  // Serial.println(Vtopic.topic);
+  // Serial.print("CMD: ");
+  // Serial.println(Vtopic.cmd);
+  // iot.pub_noTopic(Vtopic.cmd, Vtopic.topic);
+}
 
 // ~~ Create Switch Entity ~~
 void init_SW(SW_props &sw)
@@ -325,6 +349,10 @@ void init_SW(SW_props &sw)
   SW_Array[sw.id]->set_indiction(sw.indicpin, sw.indicON);                        /* Optional */
   SW_Array[sw.id]->set_useLockdown(sw.lockdown);                                  /* Optional */
 
+  if (sw.outpin == UNDEF_PIN)
+  {
+    SW_Array[sw.id]->set_VirtCMD(virtCMD_cb);
+  }
   SW_Array[sw.id]->print_preferences();
   SW_inUse++;
 }
@@ -346,7 +374,6 @@ void build_SWdefinitions(JsonDocument &DOC)
     sw.TO_dur = DOC["swTimeout"][n];
     sw.lockdown = DOC["lockdown"][n];
     sw.PWM_intense = DOC["pwm_intense"][n];
-    sw.virtCMD = DOC["virtCMD"][n];
     sw.timeout = sw.TO_dur > 0;
     sw.outputON = DOC["outputON"][n];
     sw.indicON = DOC["indicON"][n];
@@ -362,7 +389,6 @@ void build_SWdefinitions(JsonDocument &DOC)
     {
       sw.name = "NameERR";
     }
-
     init_SW(sw);
   }
 }
@@ -409,6 +435,7 @@ void smartSW_loop()
 void setup()
 {
   Serial.begin(115200);
+  iot.strtClk_rstSft(); // Placed here to protect load of all parameters from flash.
   DynamicJsonDocument DOC(JSON_DOC_SIZE);
   start_smartSW_defs(DOC);
   start_iot2(DOC);

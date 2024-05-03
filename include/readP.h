@@ -1,22 +1,28 @@
 const char *savedActivity_filename = "/activity.json";
-const char *paramterFiles[] = {"/iot_config.json", "/sw_topics.json", "/sw_properies.json"};
+const char *paramterFiles[] = {"/iot_config.json", "/sw_topics.json", "/sw_properies.json", "/vCMDs.json"};
+struct VirtTopic
+{
+  uint8_t SWn = 0;
+  uint8_t CMDn = 0;
+  const char *topic{};
+  const char *cmd{};
+};
 
 uint8_t readParameters_hardCoded(JsonDocument &DOC)
 {
-  const char *params = "{ \"numSW\": 1,\
-                          \"inputType\":[1],\
-                          \"virtCMD\":[0],\
-                          \"inputPins\":[0],\
-                          \"outputPins\":[5],\
-                          \"indicPins\":[2],\
-                          \"swTimeout\":[10],\
-                          \"swName\":[\"sw0\"],\
-                          \"lockdown\":[false],\
-                          \"pwm_intense\":[0],\
-                          \"outputON\":[1],\
-                          \"indicON\":[0],\
-                          \"inputPressed\":[0],\
-                          \"onBoot\":[1]}";
+  const char *params = "{ \"numSW\": 4,\
+                          \"inputType\":[1,1,2,0],\
+                          \"inputPins\":[0,5,4,2],\
+                          \"outputPins\":[255,14,12,13],\
+                          \"indicPins\":[255,15,255,255],\
+                          \"swTimeout\":[0,10,1,0],\
+                          \"swName\":[\"Vsw0\",\"sw1\",\"sw2\",\"sw3\"],\
+                          \"lockdown\":[false,false,false,false],\
+                          \"pwm_intense\":[0,90,50,0],\
+                          \"outputON\":[1,1,1,1],\
+                          \"indicON\":[0,0,0,0],\
+                          \"inputPressed\":[0,0,0,0],\
+                          \"onBoot\":[0,1,0,0]}";
   DeserializationError err = deserializeJson(DOC, params);
   return err.code();
 }
@@ -29,6 +35,19 @@ uint8_t readTopics_hardCoded(JsonDocument &DOC)
   return err.code();
 }
 
+void getVirtCMD(JsonDocument &DOC, const char *filename, VirtTopic &vTopic)
+{
+  if (iot.readJson_inFlash(DOC, filename))
+  {
+    vTopic.topic = DOC["topics"][vTopic.SWn];
+    vTopic.cmd = DOC["cmds"][vTopic.SWn][vTopic.CMDn];
+  }
+  else
+  {
+    vTopic.topic = "MyHome";
+    vTopic.cmd = "Err";
+  }
+}
 void readTopics_flash(JsonDocument &DOC, const char *filename)
 {
   bool a = iot.readJson_inFlash(DOC, filename);
