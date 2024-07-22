@@ -101,7 +101,7 @@ void extMQTT(char *incoming_msg, char *_topic)
       iot.convert_epoch2clock(SW_Array[i]->get_timeout() / 1000, 0, clk3);
       const char *trigs[] = {"Button", "Timeout", "MQTT", "atBoot", "Resume"};
 
-      if (SW_Array[i]->get_SWstate())
+      if (SW_Array[i]->get_SWstate() == true)
       {
         if (SW_Array[i]->useTimeout())
         {
@@ -115,7 +115,7 @@ void extMQTT(char *incoming_msg, char *_topic)
           sprintf(msg2, "timeout: [%s], elapsed: [%s], remain: [%s], triggered: [%s]", "NA", clk4, "NA", trigs[SW_Array[i]->telemtryMSG.reason]);
         }
       }
-      else
+      else if (SW_Array[i]->get_SWstate() == false)
       {
         if (SW_Array[i]->useTimeout())
         {
@@ -126,9 +126,16 @@ void extMQTT(char *incoming_msg, char *_topic)
           sprintf(msg2, "Timeout: [%s]", "NA");
         }
       }
+      else /* Virtual */
+      {
+        strcpy(msg2, "");
+        strcpy(sss, "");
+      }
 
       sprintf(msg, "[Status]: [SW#%d] name: [%s] state: [%s] %s%s",
-              i, SW_Array[i]->name, SW_Array[i]->get_SWstate() ? "On" : "Off", msg2, sss);
+              i, SW_Array[i]->name, SW_Array[i]->get_SWstate() < 1 ? "Off" : SW_Array[i]->get_SWstate() > 1 ? "Virtual"
+                                                                                                            : "On",
+              msg2, sss);
       iot.pub_msg(msg);
     }
   }
@@ -437,12 +444,11 @@ void smartSW_loop()
     {
       if (SW_Array[i]->loop())
       {
+        const char *state[] = {"off", "on"};
+        const char *trigs[] = {"Button", "Timeout", "MQTT", "atBoot", "Resume"};
         if (!SW_Array[i]->is_virtCMD())
         {
           char newmsg[200];
-          const char *state[] = {"off", "on"};
-          const char *trigs[] = {"Button", "Timeout", "MQTT", "atBoot", "Resume"};
-
           iot.pub_state(state[SW_Array[i]->telemtryMSG.state], i);
 
           if (SW_Array[i]->telemtryMSG.state == SW_ON) /*Turn on */
@@ -461,12 +467,8 @@ void smartSW_loop()
         {
           SW_props prop;
           SW_Array[i]->get_SW_props(prop);
-
           createTelemetry_post(i);
-          const char *a[]={"on","off"};
-          iot.pub_noTopic(a[SW_Array[i]->telemtryMSG.state],prop.name);
-          // Serial.println(SW_Array[i]->name());
-          // Serial.println(SW_Array[i]->telemtryMSG.state);
+          iot.pub_noTopic(state[SW_Array[i]->telemtryMSG.state], prop.name);
           SW_Array[i]->clear_newMSG();
         }
       }
