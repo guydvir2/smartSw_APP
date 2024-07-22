@@ -6,10 +6,11 @@
 #define JSON_DOC_SIZE 1200
 #define ACT_JSON_DOC_SIZE 800
 #define READ_PARAMTERS_FROM_FLASH true /* Flash or HardCoded Parameters */
+#define veboseMode true
 
 myIOT2 iot;
 smartSwitch *SW_Array[NUM_SW]{};
-const char *verApp = "smartSWApp_v0.1";
+const char *verApp = "smartSWApp_v0.2";
 
 uint8_t SW_inUse = 0;
 bool firstLoop = true;
@@ -294,7 +295,7 @@ void start_iot2(JsonDocument &DOC)
 
 void createSW(SW_props &sw)
 {
-  SW_Array[sw.id] = new smartSwitch();
+  SW_Array[sw.id] = new smartSwitch(veboseMode);
 
   SW_Array[sw.id]->set_id(sw.id);                                                 /* Instances counter- generally don't need to interfere */
   SW_Array[sw.id]->set_timeout(sw.TO_dur);                                        /* timeout is optional */
@@ -366,6 +367,7 @@ void On_atBoot()
     SW_Array[i]->get_SW_props(sw);
     if (sw.onBoot)
     {
+      Serial.println(i);
       SW_Array[i]->turnON_cb(EXT_1);
     }
   }
@@ -435,26 +437,41 @@ void smartSW_loop()
     {
       if (SW_Array[i]->loop())
       {
-        char newmsg[200];
-        const char *state[] = {"off", "on"};
-        const char *trigs[] = {"Button", "Timeout", "MQTT", "atBoot", "Resume"};
-
-        iot.pub_state(state[SW_Array[i]->telemtryMSG.state], i);
-
-        if (SW_Array[i]->telemtryMSG.state == SW_ON) /*Turn on */
+        if (!SW_Array[i]->is_virtCMD())
         {
-          turnON_notifications(i, newmsg, state[SW_Array[i]->telemtryMSG.state], trigs[SW_Array[i]->telemtryMSG.reason]);
+          char newmsg[200];
+          const char *state[] = {"off", "on"};
+          const char *trigs[] = {"Button", "Timeout", "MQTT", "atBoot", "Resume"};
+
+          iot.pub_state(state[SW_Array[i]->telemtryMSG.state], i);
+
+          if (SW_Array[i]->telemtryMSG.state == SW_ON) /*Turn on */
+          {
+            turnON_notifications(i, newmsg, state[SW_Array[i]->telemtryMSG.state], trigs[SW_Array[i]->telemtryMSG.reason]);
+          }
+          else if (SW_Array[i]->telemtryMSG.state == SW_OFF) /* Turn off */
+          {
+            turnOFF_notifications(i, newmsg, state[SW_Array[i]->telemtryMSG.state], trigs[SW_Array[i]->telemtryMSG.reason]);
+          }
+          iot.pub_msg(newmsg);
+          createTelemetry_post(i);
+          SW_Array[i]->clear_newMSG();
         }
-        else if (SW_Array[i]->telemtryMSG.state == SW_OFF) /* Turn off */
+        else
         {
-          turnOFF_notifications(i, newmsg, state[SW_Array[i]->telemtryMSG.state], trigs[SW_Array[i]->telemtryMSG.reason]);
+          SW_props prop;
+          SW_Array[i]->get_SW_props(prop);
+
+          createTelemetry_post(i);
+          const char *a[]={"on","off"};
+          iot.pub_noTopic(a[SW_Array[i]->telemtryMSG.state],prop.name);
+          // Serial.println(SW_Array[i]->name());
+          // Serial.println(SW_Array[i]->telemtryMSG.state);
+          SW_Array[i]->clear_newMSG();
         }
-        iot.pub_msg(newmsg);
-        createTelemetry_post(i);
-        SW_Array[i]->clear_newMSG();
       }
+      post_succes_reboot();
     }
-    post_succes_reboot();
   }
 }
 

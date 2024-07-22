@@ -5,11 +5,11 @@
         "DvirHome/debug"
     ],
     "subTopic": [
-        "DvirHome/Light",
+        "DvirHome/DoorLocks",
         "DvirHome/All"
     ],
     "pubTopic": [
-        "DvirHome/Light/Avail",
-        "DvirHome/Light/State"
+        "DvirHome/DoorLocks/Avail",
+        "DvirHome/DoorLocks/State"
     ]
 }

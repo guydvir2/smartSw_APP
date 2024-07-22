@@ -1,0 +1,70 @@
+{
+    "numSW": 4,
+    "inputType": [
+        2,
+        2,
+        2,
+        1
+    ],
+    "inputPins": [
+        5,
+        15,
+        0,
+        4
+    ],
+    "outputPins": [
+        16,
+        14,
+        12,
+        255
+    ],
+    "indicPins": [
+        255,
+        255,
+        255,
+        255
+    ],
+    "swTimeout": [
+        0,
+        0,
+        0,
+        0
+    ],
+    "swName": [
+        "frontDoor",
+        "laundryDoor",
+        "basmentDoor",
+        "DvirHome/Windows/Pergola"
+
+    ],
+    "lockdown": [
+        true,
+        true,
+        true,
+        false
+    ],
+    "pwm_intense": [
+        0,
+        0,
+        0,
+        0
+    ],
+    "outputON": [
+        1,
+        1,
+        1,
+        1
+    ],
+    "inputPressed": [
+        0,
+        0,
+        0,
+        0
+    ],
+    "onBoot": [
+        0,
+        0,
+        0,
+        0
+    ]
+}

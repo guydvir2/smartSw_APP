@@ -59,6 +59,11 @@ void init_SW(JsonDocument &DOC)
 {
   if (select_SWdefinition_src(DOC, swParameters_filename)) /* Stored in flash or hard-coded */
   {
+    if (veboseMode)
+    {
+      serializeJsonPretty(DOC, Serial);
+      Serial.flush();
+    }
     build_SWdefinitions(DOC);
     bootSucceeded = true;
   }
@@ -66,8 +71,11 @@ void init_SW(JsonDocument &DOC)
 void init_iot2(JsonDocument &DOC)
 {
   select_Topicsdefinition_src(DOC, swTopics_filename); /* Stored in flash or hard-coded */
-  serializeJsonPretty(DOC,Serial);
-  Serial.flush();
+  if (veboseMode)
+  {
+    serializeJsonPretty(DOC, Serial);
+    Serial.flush();
+  }
   start_iot2(DOC); /* iot2 should start always, regardless success of SW */
 }
 

@@ -1,32 +1,29 @@
 {
     "numSW": 2,
     "inputType": [
-        2,
-        1
-    ],
-    "virtCMD": [
-        0,
-        0
+        1,
+        2
     ],
     "inputPins": [
-        5,
-        4
+        4,
+        0
     ],
     "outputPins": [
-        0,
-        14
+        255,
+        5
+        
     ],
     "indicPins": [
-        2,
+        255,
         255
     ],
     "swTimeout": [
         0,
-        10
+        0
     ],
     "swName": [
-        "sw0",
-        "sw1"
+        "DvirHome/Windows/Pergola",
+        "sdsd"
     ],
     "lockdown": [
         false,
@@ -34,7 +31,7 @@
     ],
     "pwm_intense": [
         0,
-        80
+        0
     ],
     "outputON": [
         1,
@@ -46,6 +43,6 @@
     ],
     "onBoot": [
         0,
-        1
+        0
     ]
 }
