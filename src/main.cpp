@@ -43,9 +43,10 @@ void createTelemetry_post(uint8_t i)
   iot.get_timeStamp(clk);
 
   sprintf(topic, "%s/SW%d/tele", iot.topics_sub[0], i);
-  sprintf(msg, "{\"timeStamp\":%s, \"newMSG\":%s, \"lockdown\":%s, \"indic_state\":%s, \"pwm\":%d, \"state\":%d, \"reason\":%d, \"pressCount\":%d, \"clk_end\":%ld, \"clk_start\":%ld}",
+  sprintf(msg, "{\"timeStamp\":%s, \"newMSG\":%s, \"lockdown\":%s, \"input_state\":%s, \"indic_state\":%s, \"pwm\":%d, \"state\":%d, \"reason\":%d, \"pressCount\":%d, \"clk_end\":%ld, \"clk_start\":%ld}",
           clk,
           SW_Array[i]->telemtryMSG.newMSG ? "true" : "false", SW_Array[i]->telemtryMSG.lockdown ? "true" : "false",
+          SW_Array[i]->telemtryMSG.input_state ? "true" : "false", SW_Array[i]->telemtryMSG.pwm,
           SW_Array[i]->telemtryMSG.indic_state ? "true" : "false", SW_Array[i]->telemtryMSG.pwm,
           SW_Array[i]->telemtryMSG.state, SW_Array[i]->telemtryMSG.reason, SW_Array[i]->telemtryMSG.pressCount,
           SW_Array[i]->telemtryMSG.clk_end, SW_Array[i]->telemtryMSG.clk_start);
