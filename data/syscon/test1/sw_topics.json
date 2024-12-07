@@ -1,0 +1,15 @@
+{
+    "gen_pubTopic": [
+        "DvirHome/Messages",
+        "DvirHome/log",
+        "DvirHome/debug"
+    ],
+    "subTopic": [
+        "DvirHome/test1",
+        "DvirHome/All"
+    ],
+    "pubTopic": [
+        "DvirHome/test1/Avail",
+        "DvirHome/test1/State"
+    ]
+}

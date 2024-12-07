@@ -1,0 +1,36 @@
+{
+    "numSW": 1,
+    "inputType": [
+        0
+    ],
+    "inputPins": [
+        255
+    ],
+    "outputPins": [
+        255
+    ],
+    "indicPins": [
+        255
+    ],
+    "swTimeout": [
+        0
+    ],
+    "swName": [
+        "defvalue"
+    ],
+    "lockdown": [
+        false
+    ],
+    "pwm_intense": [
+        0
+    ],
+    "outputON": [
+        1
+    ],
+    "inputPressed": [
+        0
+    ],
+    "onBoot": [
+        0
+    ]
+}

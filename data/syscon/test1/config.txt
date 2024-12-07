@@ -1,0 +1,7 @@
+Name: test1
+MCU: ESP8266
+Input: 1,D3, momentary
+output: D1, Relay
+timeout: No
+
+

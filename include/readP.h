@@ -1,9 +1,9 @@
+const char *dir1 = "/syscon";
+const char *def_config_dir = "def";
+const char *selection_filename = "selection.json";
 const char *swTopics_filename = "/sw_topics.json";
-const char *savedActivity_filename = "/activity.json";
+const char *savedActivity_filename = "activity.json";
 const char *swParameters_filename = "/sw_properies.json";
-
-extern void start_iot2(JsonDocument &DOC);
-extern void build_SWdefinitions(JsonDocument &DOC);
 
 uint8_t readParameters_hardCoded(JsonDocument &DOC)
 {
@@ -33,10 +33,38 @@ uint8_t readTopics_hardCoded(JsonDocument &DOC)
   return err.code();
 }
 
-bool select_SWdefinition_src(JsonDocument &DOC, const char *file)
+bool direxsits(const char *dir)
+{
+  LittleFS.begin();
+  return LittleFS.exists(dir);
+}
+void construct_directory(char dirpath[])
+{
+  DynamicJsonDocument DOC(50);
+  if (iot.readJson_inFlash(DOC, selection_filename)) // read directory from file in flash
+  {
+    sprintf(dirpath, "%s/%s", dir1, DOC["config"].as<const char *>());
+  }
+  else // else goes to default directory in flash
+  {
+    sprintf(dirpath, "%s/%s", dir1, def_config_dir);
+  }
+}
+void construct_filename(JsonDocument &DOC, char filename[], const char *File)
+{
+  construct_directory(filename);
+  strcat(filename,File);
+  if (!direxsits(filename)) // if file in desired directory not found
+  {
+    sprintf(filename, "%s/%s/%s", dir1, def_config_dir, File); // default directory with asked file
+  }
+}
+bool select_SWdefinition_src(JsonDocument &DOC)
 {
   if (READ_PARAMTERS_FROM_FLASH)
   {
+    char file[30];
+    construct_filename(DOC, file, swParameters_filename);
     return iot.readJson_inFlash(DOC, file);
   }
   else
@@ -44,10 +72,12 @@ bool select_SWdefinition_src(JsonDocument &DOC, const char *file)
     return readParameters_hardCoded(DOC) == 0;
   }
 }
-bool select_Topicsdefinition_src(JsonDocument &DOC, const char *file)
+bool select_Topicsdefinition_src(JsonDocument &DOC)
 {
   if (READ_PARAMTERS_FROM_FLASH)
   {
+    char file[30];
+    construct_filename(DOC, file, swTopics_filename);
     return iot.readJson_inFlash(DOC, file);
   }
   else
@@ -55,30 +85,17 @@ bool select_Topicsdefinition_src(JsonDocument &DOC, const char *file)
     return readTopics_hardCoded(DOC) == 0;
   }
 }
-void init_SW(JsonDocument &DOC)
+void read_dirList(char dirlist[])
 {
-  if (select_SWdefinition_src(DOC, swParameters_filename)) /* Stored in flash or hard-coded */
+  LittleFS.begin();
+  Dir dir = LittleFS.openDir(dir1);
+  strcpy(dirlist, "");
+  while (dir.next())
   {
-    if (veboseMode)
-    {
-      serializeJsonPretty(DOC, Serial);
-      Serial.flush();
-    }
-    build_SWdefinitions(DOC);
-    bootSucceeded = true;
+    strcat(dirlist, dir.fileName().c_str());
+    strcat(dirlist, "; ");
   }
 }
-void init_iot2(JsonDocument &DOC)
-{
-  select_Topicsdefinition_src(DOC, swTopics_filename); /* Stored in flash or hard-coded */
-  if (veboseMode)
-  {
-    serializeJsonPretty(DOC, Serial);
-    Serial.flush();
-  }
-  start_iot2(DOC); /* iot2 should start always, regardless success of SW */
-}
-
 void Telemtry2JSON(JsonDocument &DOC, uint8_t i)
 {
   DOC["newMSG"][i] = false;
@@ -101,17 +118,17 @@ void Telemtry2JSON(JsonDocument &DOC, uint8_t i)
   DOC["indic_state"][i] = SW_Array[i]->telemtryMSG.indic_state;
 }
 
-bool readActivity_file(JsonDocument &DOC)
+bool readLastAction_file(JsonDocument &DOC)
 {
   myJflash ActionSave;
   return ActionSave.readFile(DOC, savedActivity_filename);
 }
-bool saveActivity_file(uint8_t i)
+bool savedLastAction_file(uint8_t i)
 {
   myJflash ActionSave;
   DynamicJsonDocument DOC(ACT_JSON_DOC_SIZE);
 
-  readActivity_file(DOC);
+  readLastAction_file(DOC);
   Telemtry2JSON(DOC, i);
   return ActionSave.writeFile(DOC, savedActivity_filename);
 }

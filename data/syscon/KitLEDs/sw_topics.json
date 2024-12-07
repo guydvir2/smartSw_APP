@@ -1,0 +1,15 @@
+{
+    "gen_pubTopic": [
+        "DvirHome/Messages",
+        "DvirHome/log",
+        "DvirHome/debug"
+    ],
+    "subTopic": [
+        "DvirHome/Lights/1Floors/IslnLED",
+        "DvirHome/All"
+    ],
+    "pubTopic": [
+        "DvirHome/Lights/1Floors/IslnLED/Avail",
+        "DvirHome/Lights/1Floors/IslnLED/State"
+    ]
+}

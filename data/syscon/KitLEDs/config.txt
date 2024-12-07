@@ -1,0 +1,7 @@
+Name: test1
+MCU: ESP8266
+Input: NO
+output: D1, Relay Like
+timeout: No
+
+
