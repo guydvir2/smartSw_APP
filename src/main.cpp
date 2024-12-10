@@ -152,19 +152,18 @@ void extMQTT(char *incoming_msg, char *_topic)
 
       if (SW_Array[i]->get_SWstate() == true)
       {
-        // if (SW_Array[i]->useTimeout())
-        // {
+        if (SW_Array[i]->useTimeout())
+        {
           iot.convert_epoch2clock(SW_Array[i]->get_remain_time() / 1000, 0, clk);
-          uint16_t dur=SW_Array[i]->get_elapsed()>0 ? SW_Array[i]->get_elapsed():(millis() - SW_Array[i]->telemtryMSG.clk_start);
+          uint16_t dur = SW_Array[i]->get_elapsed() > 0 ? SW_Array[i]->get_elapsed() : (millis() - SW_Array[i]->telemtryMSG.clk_start);
           iot.convert_epoch2clock(dur / 1000, 0, clk2);
           sprintf(msg2, "timeout: [%s], elapsed: [%s], remain: [%s], triggered: [%s]", clk3, clk2, clk, trigs[SW_Array[i]->telemtryMSG.reason]);
-          // Serial.println((millis() - SW_Array[i]->telemtryMSG.clk_start)/1000);
-        // }
-        // else
-        // {
-        //   iot.convert_epoch2clock((millis() - SW_Array[i]->telemtryMSG.clk_start) / 1000, 0, clk4);
-        //   sprintf(msg2, "timeout: [%s], elapsed: [%s], remain: [%s], triggered: [%s]", "NA", clk4, "NA", trigs[SW_Array[i]->telemtryMSG.reason]);
-        // }
+        }
+        else
+        {
+          iot.convert_epoch2clock((millis() - SW_Array[i]->telemtryMSG.clk_start) / 1000, 0, clk4);
+          sprintf(msg2, "timeout: [%s], elapsed: [%s], remain: [%s], triggered: [%s]", "NA", clk4, "NA", trigs[SW_Array[i]->telemtryMSG.reason]);
+        }
       }
       else if (SW_Array[i]->get_SWstate() == false)
       {
@@ -200,7 +199,7 @@ void extMQTT(char *incoming_msg, char *_topic)
     sprintf(msg, "ver #2: %s %s", verApp, SW_Array[0]->ver);
     iot.pub_msg(msg);
   }
-  else if (strcmp(incoming_msg, "condirs") == 0)
+  else if (strcmp(incoming_msg, "show_configs") == 0)
   {
     char dlist[200];
     read_dirList(dlist);
@@ -301,15 +300,34 @@ void extMQTT(char *incoming_msg, char *_topic)
       {
         if (SW_Array[atoi(iot.inline_param[0])]->telemtryMSG.pwm < 102)
         {
-          // SW_Array[atoi(iot.inline_param[0])]->set_additional_timeout(atoi(iot.inline_param[2]), EXT_0);
-          // iot.convert_epoch2clock(atoi(iot.inline_param[2]) * TimeFactor / 1000, 0, clk);
-          // sprintf(msg, "[Timeout]: [%s] add time: [%s]", sw_properties.name, clk);
+          SW_Array[atoi(iot.inline_param[0])]->set_additional_timeout(atoi(iot.inline_param[2]), EXT_0);
+          iot.convert_epoch2clock(atoi(iot.inline_param[2]) * TimeFactor / 1000, 0, clk);
+          sprintf(msg, "[Timeout]: [%s] add time: [%s]", sw_properties.name, clk);
         }
         else
         {
           sprintf(msg, "[Timeout]: [SW#%d] does not use PWM", atoi(iot.inline_param[0]));
         }
         iot.pub_msg(msg);
+      }
+      else if (strcmp(iot.inline_param[0], "update_config") == 0)
+      {
+        if (find_config_dir(iot.inline_param[1]))
+        {
+          if (update_config_dir(iot.inline_param[1]))
+          {
+            iot.pub_msg("Configuration updated. Resseting.");
+            iot.sendReset("Reset due to config update");
+          }
+          else
+          {
+            iot.pub_msg("Configuration exists. Failed to write config file.");
+          }
+        }
+        else
+        {
+          iot.pub_msg("Configuration does not exist.");
+        }
       }
     }
   }
@@ -336,7 +354,7 @@ void start_iot2(JsonDocument &DOC, bool succ_read)
     {
       iot.add_subTopic(t2[i]);
     }
-    for (uint8_t i = 0; i < 3; i++)
+    for (uint8_t i = 0; i < 2; i++)
     {
       iot.add_pubTopic(t3[i]);
     }
@@ -436,7 +454,6 @@ void On_atBoot()
     SW_Array[i]->get_SW_props(sw);
     if (sw.onBoot)
     {
-      Serial.println(i);
       SW_Array[i]->turnON_cb(EXT_1);
     }
   }

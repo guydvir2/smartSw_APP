@@ -1,7 +1,7 @@
-Name: test1
+Name: Kitchen LedStrip
 MCU: ESP8266
 Input: NO
-output: D1, Relay Like
-timeout: No
+output: PWM MosFET
+timeout: 720
 
 

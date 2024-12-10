@@ -38,6 +38,30 @@ bool direxsits(const char *dir)
   LittleFS.begin();
   return LittleFS.exists(dir);
 }
+void read_dirList(char dirlist[])
+{
+  LittleFS.begin();
+  Dir dir = LittleFS.openDir(dir1);
+  strcpy(dirlist, "");
+  while (dir.next())
+  {
+    strcat(dirlist, dir.fileName().c_str());
+    strcat(dirlist, "; ");
+  }
+}
+bool find_config_dir(const char *d)
+{
+  LittleFS.begin();
+  Dir dir = LittleFS.openDir(dir1);
+  while (dir.next())
+  {
+    if (strcmp(d, dir.fileName().c_str()) == 0)
+    {
+      return true;
+    }
+  }
+  return false;
+}
 void construct_directory(char dirpath[])
 {
   DynamicJsonDocument DOC(50);
@@ -53,11 +77,18 @@ void construct_directory(char dirpath[])
 void construct_filename(JsonDocument &DOC, char filename[], const char *File)
 {
   construct_directory(filename);
-  strcat(filename,File);
+  strcat(filename, File);
   if (!direxsits(filename)) // if file in desired directory not found
   {
     sprintf(filename, "%s/%s/%s", dir1, def_config_dir, File); // default directory with asked file
   }
+}
+bool update_config_dir(const char *configFile)
+{
+  DynamicJsonDocument DOC(150);
+  myJflash ConfigJsonFile(iot.useSerial);
+  DOC["config"] = configFile;
+  return ConfigJsonFile.writeFile(DOC, selection_filename);
 }
 bool select_SWdefinition_src(JsonDocument &DOC)
 {
@@ -85,17 +116,6 @@ bool select_Topicsdefinition_src(JsonDocument &DOC)
     return readTopics_hardCoded(DOC) == 0;
   }
 }
-void read_dirList(char dirlist[])
-{
-  LittleFS.begin();
-  Dir dir = LittleFS.openDir(dir1);
-  strcpy(dirlist, "");
-  while (dir.next())
-  {
-    strcat(dirlist, dir.fileName().c_str());
-    strcat(dirlist, "; ");
-  }
-}
 void Telemtry2JSON(JsonDocument &DOC, uint8_t i)
 {
   DOC["newMSG"][i] = false;
@@ -117,7 +137,6 @@ void Telemtry2JSON(JsonDocument &DOC, uint8_t i)
 
   DOC["indic_state"][i] = SW_Array[i]->telemtryMSG.indic_state;
 }
-
 bool readLastAction_file(JsonDocument &DOC)
 {
   myJflash ActionSave;
