@@ -518,6 +518,7 @@ void init_SW(JsonDocument &DOC)
 {
   if (select_SWdefinition_src(DOC)) /* Stored in flash or hard-coded */
   {
+    Serial.println(">> Succeed to read SW defs from file.");
     if (veboseMode)
     {
       serializeJsonPretty(DOC, Serial);
@@ -528,6 +529,7 @@ void init_SW(JsonDocument &DOC)
   }
   else
   {
+    Serial.println(">> Failed to read SW defs.");
     bootSucceeded = false;
   }
 }
