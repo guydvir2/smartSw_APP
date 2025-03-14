@@ -1,7 +1,7 @@
-const char *dir1 = "/syscon";
-const char *def_config_dir = "def";
-const char *selection_filename = "selection.json";
-const char *swTopics_filename = "sw_topics.json";
+const char *ROOT_CONFIG_DIRECTORY = "/syscon";
+const char *DEF_CONFIG_DIRECTORY = "def";
+const char *SELECTION_FILENAME = "selection.json";
+const char *SW_TOPICS_FILENAME = "sw_topics.json";
 const char *savedActivity_filename = "activity.json";
 const char *swParameters_filename = "sw_properies.json";
 
@@ -30,6 +30,8 @@ uint8_t readTopics_hardCoded(JsonDocument &DOC)
                           \"availTopic\":[\"DvirHome/light_CODE/Avail\"],\
                           \"stateTopic\":[\"DvirHome/light_CODE/State\"]}";
   DeserializationError err = deserializeJson(DOC, params);
+  Serial.println(err.c_str());
+  Serial.flush();
   return err.code();
 }
 
@@ -41,7 +43,7 @@ bool direxsits(const char *dir)
 void read_dirList(char dirlist[])
 {
   LittleFS.begin();
-  Dir dir = LittleFS.openDir(dir1);
+  Dir dir = LittleFS.openDir(ROOT_CONFIG_DIRECTORY);
   strcpy(dirlist, "");
   while (dir.next())
   {
@@ -52,7 +54,7 @@ void read_dirList(char dirlist[])
 bool find_config_dir(const char *d)
 {
   LittleFS.begin();
-  Dir dir = LittleFS.openDir(dir1);
+  Dir dir = LittleFS.openDir(ROOT_CONFIG_DIRECTORY);
   while (dir.next())
   {
     if (strcmp(d, dir.fileName().c_str()) == 0)
@@ -62,37 +64,37 @@ bool find_config_dir(const char *d)
   }
   return false;
 }
-bool construct_directory(char dirpath[])
+bool getConfig_directory(char dirpath[])
 {
   DynamicJsonDocument DOC(50);
-  if (iot.readJson_inFlash(DOC, selection_filename)) // read directory from file in flash
+  if (iot.readJson_inFlash(DOC, SELECTION_FILENAME)) // read directory from file in flash
   {
-    sprintf(dirpath, "%s/%s", dir1, DOC["config"].as<const char *>());
+    sprintf(dirpath, "%s/%s", ROOT_CONFIG_DIRECTORY, DOC["config"].as<const char *>());
     return true;
   }
   else // else goes to default directory in flash
   {
-    sprintf(dirpath, "%s/%s", dir1, def_config_dir);
+    sprintf(dirpath, "%s/%s", ROOT_CONFIG_DIRECTORY, DEF_CONFIG_DIRECTORY);
     return false;
   }
 }
-bool construct_filename(JsonDocument &DOC, char filename[], const char *File)
+bool build_filename_path(JsonDocument &DOC, char filename[], const char *File)
 {
-  if (construct_directory(filename))
+  if (getConfig_directory(filename))
   {
     strcat(filename, "/");
     strcat(filename, File);
     if (veboseMode)
     {
+      Serial.print(">> Filename constructed: ");  
       Serial.println(filename);
     }
   }
   if (!direxsits(filename)) // if file in desired directory not found
   {
-    sprintf(filename, "%s/%s/%s", dir1, def_config_dir, File); // default directory with asked file
+    sprintf(filename, "%s/%s/%s", ROOT_CONFIG_DIRECTORY, DEF_CONFIG_DIRECTORY, File); // default directory with asked file
     if (veboseMode)
     {
-      Serial.println(filename);
       Serial.println(">> Filename construct failed. Default oath used.");
     }
     return false;
@@ -108,7 +110,7 @@ bool update_config_dir(const char *configFile)
   myJflash ConfigJsonFile(iot.useSerial);
   DOC["config"] = configFile;
   serializeJsonPretty(DOC, Serial);
-  return ConfigJsonFile.writeFile(DOC, selection_filename);
+  return ConfigJsonFile.writeFile(DOC, SELECTION_FILENAME);
 }
 bool select_SWdefinition_src(JsonDocument &DOC)
 {
@@ -116,7 +118,7 @@ bool select_SWdefinition_src(JsonDocument &DOC)
   {
     Serial.println(">> Flash parameters");
     char file[30];
-    if (construct_filename(DOC, file, swParameters_filename)) // able to construct file path
+    if (build_filename_path(DOC, file, swParameters_filename)) // able to construct file path
     {
       Serial.println("construct OK.");
       return iot.readJson_inFlash(DOC, file); // succeed to read file
@@ -138,7 +140,7 @@ bool select_Topicsdefinition_src(JsonDocument &DOC)
   if (READ_PARAMTERS_FROM_FLASH)
   {
     char file[30];
-    construct_filename(DOC, file, swTopics_filename);
+    build_filename_path(DOC, file, SW_TOPICS_FILENAME);
     return iot.readJson_inFlash(DOC, file);
   }
   else

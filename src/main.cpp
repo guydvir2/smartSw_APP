@@ -10,7 +10,7 @@
 
 myIOT2 iot;
 smartSwitch *SW_Array[MAX_SW_NUM]{};
-const char *verApp = "smartSWApp_v0.3";
+const char *verApp = "smartSWApp_v0.4";
 
 uint8_t SW_inUse = 0;
 bool firstLoop = true;
@@ -64,7 +64,7 @@ void postEntity(uint8_t i)
   const char *swTypes[] = {"None", "Button", "Switch", "MultiPress"};
 
   DynamicJsonDocument DOC(50);
-  iot.readJson_inFlash(DOC, selection_filename);
+  iot.readJson_inFlash(DOC, SELECTION_FILENAME);
 
   SW_props sw_properties;
   SW_Array[i]->get_SW_props(sw_properties);
@@ -191,7 +191,10 @@ void extMQTT(char *incoming_msg, char *_topic)
   }
   else if (strcmp(incoming_msg, "help2") == 0)
   {
-    sprintf(msg, "help #2:{[i],on,[timeout],[pwm_percentage]},{[i],off}, {[i], add_time,[timeout]}, {[i], remain}, {[i], timeout}, {[i], elapsed}, {[i], show_params}");
+    sprintf(msg, "[Help2]: Commands #1 - {[i],on,[timeout],[pwm_percentage]},{[i],off}, {[i], add_time,[timeout]}, {[i], remain}, {[i], timeout}, {[i], elapsed}, {[i]}");
+    iot.pub_msg(msg);
+
+    sprintf(msg, "[Help2]: Commands #2 - [show_params, show_configs, {update_config,<config_name>}]");
     iot.pub_msg(msg);
   }
   else if (strcmp(incoming_msg, "ver2") == 0)
@@ -203,7 +206,7 @@ void extMQTT(char *incoming_msg, char *_topic)
   {
     char dlist[200];
     read_dirList(dlist);
-    sprintf(msg, "[Config_Dirs]: %s", dlist);
+    sprintf(msg, "[Saved Config]: %s", dlist);
     iot.pub_msg(msg);
   }
   else if (strcmp(incoming_msg, "show_params") == 0)
@@ -287,7 +290,7 @@ void extMQTT(char *incoming_msg, char *_topic)
         if (SW_Array[atoi(iot.inline_param[0])]->useTimeout())
         {
           SW_Array[atoi(iot.inline_param[0])]->set_additional_timeout(atoi(iot.inline_param[2]), EXT_0);
-          iot.convert_epoch2clock(atoi(iot.inline_param[2]) * TimeFactor / 1000, 0, clk);
+          iot.convert_epoch2clock(atoi(iot.inline_param[2]) * SW_Array[atoi(iot.inline_param[0])]->TimeFactor / 1000, 0, clk);
           sprintf(msg, "[Timeout]: [%s] add time: [%s]", sw_properties.name, clk);
         }
         else
@@ -301,7 +304,7 @@ void extMQTT(char *incoming_msg, char *_topic)
         if (SW_Array[atoi(iot.inline_param[0])]->telemtryMSG.pwm < 102)
         {
           SW_Array[atoi(iot.inline_param[0])]->set_additional_timeout(atoi(iot.inline_param[2]), EXT_0);
-          iot.convert_epoch2clock(atoi(iot.inline_param[2]) * TimeFactor / 1000, 0, clk);
+          iot.convert_epoch2clock(atoi(iot.inline_param[2]) * SW_Array[atoi(iot.inline_param[0])]->TimeFactor / 1000, 0, clk);
           sprintf(msg, "[Timeout]: [%s] add time: [%s]", sw_properties.name, clk);
         }
         else
@@ -339,39 +342,29 @@ void start_iot2(JsonDocument &DOC, bool succ_read)
   iot.noNetwork_reset = 2;
   iot.ignore_boot_msg = false;
 
-  // /* fail read from flash  values */
-  const char *t[] = {"DvirHome/Messages", "DvirHome/log", "DvirHome/debug"};
-  const char *t2[] = {"DvirHome/Device", "DvirHome/All"};
-  const char *t3[] = {"DvirHome/Device/Avail", "DvirHome/Device/State"};
-
   if (!succ_read)
   {
-    for (uint8_t i = 0; i < 3; i++)
-    {
-      iot.add_gen_pubTopic(t[i]);
-    }
-    for (uint8_t i = 0; i < 2; i++)
-    {
-      iot.add_subTopic(t2[i]);
-    }
-    for (uint8_t i = 0; i < 2; i++)
-    {
-      iot.add_pubTopic(t3[i]);
-    }
+    const char *t[] = {"DvirHome/Messages", "DvirHome/log", "DvirHome/debug"};
+    const char *t2[] = {"DvirHome/Device", "DvirHome/All"};
+    const char *t3[] = {"DvirHome/Device/Avail", "DvirHome/Device/State"};
+    iot.add_gen_pubTopic(t, 3);
+    iot.add_subTopic(t2, 2);
+    iot.add_pubTopic(t3, 2);
   }
   else
   {
-    for (uint8_t i = 0; i < (DOC["gen_pubTopic"].size() /*| 3*/); i++)
+    Serial.println("Read from flash");
+    for (uint8_t i = 0; i < (DOC["gen_pubTopic"].size()); i++)
     {
-      iot.add_gen_pubTopic(DOC["gen_pubTopic"][i] /*| t[i]*/);
+      iot.add_gen_pubTopic(DOC["gen_pubTopic"][i]);
     }
-    for (uint8_t i = 0; i < (DOC["subTopic"].size() /*| 2*/); i++)
+    for (uint8_t i = 0; i < (DOC["subTopic"].size()); i++)
     {
-      iot.add_subTopic(DOC["subTopic"][i] /*| t2[i]*/);
+      iot.add_subTopic(DOC["subTopic"][i]);
     }
-    for (uint8_t i = 0; i < (DOC["pubTopic"].size() /*| 3*/); i++)
+    for (uint8_t i = 0; i < (DOC["pubTopic"].size()); i++)
     {
-      iot.add_pubTopic(DOC["pubTopic"][i] /*| t3[i]*/);
+      iot.add_pubTopic(DOC["pubTopic"][i]);
     }
   }
 
@@ -381,7 +374,7 @@ void start_iot2(JsonDocument &DOC, bool succ_read)
 // ~~~~~~~ Create Switch instances ~~~~~~~
 void createSW(SW_props &sw)
 {
-  SW_Array[sw.id] = new smartSwitch(veboseMode);
+  SW_Array[sw.id] = new smartSwitch(veboseMode, sw.timeFactor);
 
   SW_Array[sw.id]->set_id(sw.id);                                                 /* Instances counter- generally don't need to interfere */
   SW_Array[sw.id]->set_timeout(sw.TO_dur);                                        /* timeout is optional */
@@ -418,6 +411,10 @@ void build_SWdefinitions(JsonDocument &DOC)
     sw.outputON = DOC["outputON"][n] | 0;
     sw.inputPressed = DOC["inputPressed"][n] | 0;
     sw.onBoot = DOC["onBoot"][n] | 0;
+    sw.timeFactor = DOC["timeFactor"][n] | 60000;
+    Serial.print("THS:");
+    Serial.println(DOC["timeFactor"][n].as<uint16_t>());
+
     createSW(sw);
   }
 }
@@ -558,6 +555,6 @@ void setup()
 }
 void loop()
 {
-  smartSW_loop();
+  // smartSW_loop();
   iot.looper();
 }
