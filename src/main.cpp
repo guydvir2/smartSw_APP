@@ -6,15 +6,15 @@
 #define JSON_DOC_SIZE 1200
 #define ACT_JSON_DOC_SIZE 800
 #define READ_PARAMTERS_FROM_FLASH true /* Flash or HardCoded Parameters */
-#define veboseMode true
+#define veboseMode false
 
 myIOT2 iot;
 smartSwitch *SW_Array[MAX_SW_NUM]{};
-const char *verApp = "smartSWApp_v0.4";
+constexpr const char *verApp = "smartSWApp_v0.4";
 
 uint8_t SW_inUse = 0;
 bool firstLoop = true;
-bool bootSucceeded = false;
+bool SW_defs_readOK = false;
 
 #include "readP.h"
 
@@ -42,8 +42,8 @@ void postTelemetry(uint8_t i)
   char clk[25];
   char msg[300];
   char topic[50];
-  iot.get_timeStamp(clk);
 
+  iot.get_timeStamp(clk);
   sprintf(topic, "%s/SW%d/tele", iot.topics_sub[0], i);
   sprintf(msg, "{\"timeStamp\":%s, \"newMSG\":%s, \"lockdown\":%s, \"input_state\":%s, \"indic_state\":%s, \"pwm\":%d, \"state\":%d, \"reason\":%d, \"pressCount\":%d, \"clk_end\":%ld, \"clk_start\":%ld}",
           clk, SW_Array[i]->telemtryMSG.newMSG ? "true" : "false", SW_Array[i]->telemtryMSG.lockdown ? "true" : "false",
@@ -205,15 +205,16 @@ void extMQTT(char *incoming_msg, char *_topic)
   else if (strcmp(incoming_msg, "show_configs") == 0)
   {
     char dlist[200];
-    read_dirList(dlist);
-    sprintf(msg, "[Saved Config]: %s", dlist);
-    iot.pub_msg(msg);
+    get_directory_list(dlist);
+    sprintf(msg, "[Configs]: [%s]", dlist);
+    iot.pub_debug(msg);
+    iot.pub_msg("[Configs]: Published in debug");
   }
   else if (strcmp(incoming_msg, "show_params") == 0)
   {
     DynamicJsonDocument DOC(JSON_DOC_SIZE);
 
-    if (select_SWdefinition_src(DOC))
+    if (get_sw_defs(DOC))
     {
       char clk[25];
       char msg2[300];
@@ -315,7 +316,7 @@ void extMQTT(char *incoming_msg, char *_topic)
       }
       else if (strcmp(iot.inline_param[0], "update_config") == 0)
       {
-        if (find_config_dir(iot.inline_param[1]))
+        if (find_directory(iot.inline_param[1]))
         {
           if (update_config_dir(iot.inline_param[1]))
           {
@@ -342,32 +343,22 @@ void start_iot2(JsonDocument &DOC, bool succ_read)
   iot.noNetwork_reset = 2;
   iot.ignore_boot_msg = false;
 
-  if (!succ_read)
-  {
-    const char *t[] = {"DvirHome/Messages", "DvirHome/log", "DvirHome/debug"};
-    const char *t2[] = {"DvirHome/Device", "DvirHome/All"};
-    const char *t3[] = {"DvirHome/Device/Avail", "DvirHome/Device/State"};
-    iot.add_gen_pubTopic(t, 3);
-    iot.add_subTopic(t2, 2);
-    iot.add_pubTopic(t3, 2);
-  }
-  else
-  {
-    Serial.println("Read from flash");
-    for (uint8_t i = 0; i < (DOC["gen_pubTopic"].size()); i++)
-    {
-      iot.add_gen_pubTopic(DOC["gen_pubTopic"][i]);
-    }
-    for (uint8_t i = 0; i < (DOC["subTopic"].size()); i++)
-    {
-      iot.add_subTopic(DOC["subTopic"][i]);
-    }
-    for (uint8_t i = 0; i < (DOC["pubTopic"].size()); i++)
-    {
-      iot.add_pubTopic(DOC["pubTopic"][i]);
-    }
-  }
+  JsonArray subTopics = DOC["subTopic"].as<JsonArray>();
+  JsonArray pubTopic = DOC["pubTopic"].as<JsonArray>();
+  JsonArray gen_pubTopic = DOC["gen_pubTopic"].as<JsonArray>();
 
+  for (const auto &topic : subTopics)
+  {
+    iot.add_subTopic(topic);
+  }
+  for (const auto &topic : pubTopic)
+  {
+    iot.add_pubTopic(topic);
+  }
+  for (const auto &topic : gen_pubTopic)
+  {
+    iot.add_gen_pubTopic(topic);
+  }
   iot.start_services(extMQTT);
 }
 
@@ -401,10 +392,8 @@ void build_SWdefinitions(JsonDocument &DOC)
     sw.outpin = DOC["outputPins"][n] | 0;
     sw.indicpin = DOC["indicPins"][n] | 0;
     sw.TO_dur = DOC["swTimeout"][n] | 0;
-
     sw.name = DOC["swName"][n] | "NO_NAME";
     sw.lockdown = DOC["lockdown"][n] | 0;
-
     sw.PWM_intense = DOC["pwm_intense"][n] | 0;
     sw.virtCMD = DOC["virtCMD"][n] | 0;
     sw.timeout = sw.TO_dur > 0;
@@ -412,8 +401,6 @@ void build_SWdefinitions(JsonDocument &DOC)
     sw.inputPressed = DOC["inputPressed"][n] | 0;
     sw.onBoot = DOC["onBoot"][n] | 0;
     sw.timeFactor = DOC["timeFactor"][n] | 60000;
-    Serial.print("THS:");
-    Serial.println(DOC["timeFactor"][n].as<uint16_t>());
 
     createSW(sw);
   }
@@ -473,14 +460,15 @@ void post_succes_reboot()
 // ~~~~~~~ Init & loop functions ~~~~~~~
 void smartSW_loop()
 {
-  if (bootSucceeded)
+  if (SW_defs_readOK)
   {
     for (uint8_t i = 0; i < SW_inUse; i++)
     {
       if (SW_Array[i]->loop())
       {
-        const char *state[] = {"off", "on"};
-        const char *trigs[] = {"Button", "Timeout", "MQTT", "atBoot", "Resume"};
+        constexpr const char *state[] = {"off", "on"};
+        constexpr const char *trigs[] = {"Button", "Timeout", "MQTT", "atBoot", "Resume"};
+
         if (!SW_Array[i]->is_virtCMD())
         {
           char newmsg[200];
@@ -513,7 +501,7 @@ void smartSW_loop()
 }
 void init_SW(JsonDocument &DOC)
 {
-  if (select_SWdefinition_src(DOC)) /* Stored in flash or hard-coded */
+  if (get_sw_defs(DOC)) /* Stored in flash or hard-coded */
   {
     Serial.println(">> Succeed to read SW defs from file.");
     if (veboseMode)
@@ -522,39 +510,30 @@ void init_SW(JsonDocument &DOC)
       Serial.flush();
     }
     build_SWdefinitions(DOC);
-    bootSucceeded = true;
+    SW_defs_readOK = true;
   }
   else
   {
     Serial.println(">> Failed to read SW defs.");
-    bootSucceeded = false;
-  }
-}
-void init_iot2(JsonDocument &DOC)
-{
-  start_iot2(DOC, select_Topicsdefinition_src(DOC));
-  if (veboseMode)
-  {
-    serializeJsonPretty(DOC, Serial);
-    Serial.flush();
+    SW_defs_readOK = false;
   }
 }
 void startService()
 {
   DynamicJsonDocument DOC(JSON_DOC_SIZE);
+
   init_SW(DOC);
-  init_iot2(DOC);
+  start_iot2(DOC, readTopics_defs(DOC));
 }
 
 //~~~~~~~ Sketch Main ~~~~~~~
 
 void setup()
 {
-  Serial.begin(115200);
   startService();
 }
 void loop()
 {
-  // smartSW_loop();
+  smartSW_loop();
   iot.looper();
 }

@@ -7,13 +7,13 @@
         255
     ],
     "outputPins": [
-        0
+        4
     ],
     "indicPins": [
         255
     ],
     "swTimeout": [
-        0
+        720
     ],
     "swName": [
         "LEDstrip"

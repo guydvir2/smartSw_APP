@@ -1,15 +1,14 @@
-const char *ROOT_CONFIG_DIRECTORY = "/syscon";
+constexpr const char *ROOT_CONFIG_DIRECTORY = "/syscon";
 const char *DEF_CONFIG_DIRECTORY = "def";
 const char *SELECTION_FILENAME = "selection.json";
 const char *SW_TOPICS_FILENAME = "sw_topics.json";
-const char *savedActivity_filename = "activity.json";
-const char *swParameters_filename = "sw_properies.json";
+const char *ACTIVITY_FILENAME = "activity.json";
+const char *SW_PARAMETERS_FILENAME = "sw_properies.json";
 
 uint8_t readParameters_hardCoded(JsonDocument &DOC)
 {
-  const char *params = "{ \"numSW\": 1,\
+  constexpr char *params = "{ \"numSW\": 1,\
                           \"inputType\":[1],\
-                          \"virtCMD\":[0],\
                           \"inputPins\":[5],\
                           \"outputPins\":[0],\
                           \"indicPins\":[255],\
@@ -19,19 +18,17 @@ uint8_t readParameters_hardCoded(JsonDocument &DOC)
                           \"pwm_intense\":[0],\
                           \"outputON\":[1],\
                           \"inputPressed\":[0],\
-                          \"onBoot\":[0]}";
+                          \"onBoot\":[0],\
+                          \"timeFactor\": [60000]}";
   DeserializationError err = deserializeJson(DOC, params);
   return err.code();
 }
 uint8_t readTopics_hardCoded(JsonDocument &DOC)
 {
-  const char *params = "{ \"gen_pubTopic\":[\"DvirHome/Messages\",\"DvirHome/log\",\"DvirHome/debug\"],\
-                          \"subTopic\":[\"DvirHome/light_CODE\"],\
-                          \"availTopic\":[\"DvirHome/light_CODE/Avail\"],\
-                          \"stateTopic\":[\"DvirHome/light_CODE/State\"]}";
+  constexpr const char *params = "{ \"gen_pubTopic\":[\"DvirHome/Messages\",\"DvirHome/log\",\"DvirHome/debug\"],\
+                          \"subTopic\":[\"DvirHome/light_CODE\",\"DvirHome/All\"],\
+                          \"pubTopic\":[\"DvirHome/light_CODE/Avail\",\"DvirHome/light_CODE/State\"]}";
   DeserializationError err = deserializeJson(DOC, params);
-  Serial.println(err.c_str());
-  Serial.flush();
   return err.code();
 }
 
@@ -40,7 +37,7 @@ bool direxsits(const char *dir)
   LittleFS.begin();
   return LittleFS.exists(dir);
 }
-void read_dirList(char dirlist[])
+void get_directory_list(char dirlist[])
 {
   LittleFS.begin();
   Dir dir = LittleFS.openDir(ROOT_CONFIG_DIRECTORY);
@@ -51,7 +48,7 @@ void read_dirList(char dirlist[])
     strcat(dirlist, "; ");
   }
 }
-bool find_config_dir(const char *d)
+bool find_directory(const char *d)
 {
   LittleFS.begin();
   Dir dir = LittleFS.openDir(ROOT_CONFIG_DIRECTORY);
@@ -86,8 +83,9 @@ bool build_filename_path(JsonDocument &DOC, char filename[], const char *File)
     strcat(filename, File);
     if (veboseMode)
     {
-      Serial.print(">> Filename constructed: ");  
+      Serial.print(">> Filename constructed: ");
       Serial.println(filename);
+      Serial.flush();
     }
   }
   if (!direxsits(filename)) // if file in desired directory not found
@@ -96,6 +94,7 @@ bool build_filename_path(JsonDocument &DOC, char filename[], const char *File)
     if (veboseMode)
     {
       Serial.println(">> Filename construct failed. Default oath used.");
+      Serial.flush();
     }
     return false;
   }
@@ -108,17 +107,35 @@ bool update_config_dir(const char *configFile)
 {
   DynamicJsonDocument DOC(150);
   myJflash ConfigJsonFile(iot.useSerial);
-  DOC["config"] = configFile;
-  serializeJsonPretty(DOC, Serial);
-  return ConfigJsonFile.writeFile(DOC, SELECTION_FILENAME);
+  if (find_directory(configFile))
+  {
+    DOC["config"] = configFile;
+    serializeJsonPretty(DOC, Serial);
+    if (ConfigJsonFile.writeFile(DOC, SELECTION_FILENAME))
+    {
+      iot.pub_log("Config file updated");
+      return true;
+    }
+    else
+    {
+      iot.pub_log("Directory Exists. Config file failed updating");
+      return false;
+    }
+  }
+  else
+  {
+    iot.pub_log("Directory not Exists. Config file failed updating");
+
+    return false;
+  }
 }
-bool select_SWdefinition_src(JsonDocument &DOC)
+bool get_sw_defs(JsonDocument &DOC)
 {
   if (READ_PARAMTERS_FROM_FLASH)
   {
     Serial.println(">> Flash parameters");
     char file[30];
-    if (build_filename_path(DOC, file, swParameters_filename)) // able to construct file path
+    if (build_filename_path(DOC, file, SW_PARAMETERS_FILENAME)) // able to construct file path
     {
       Serial.println("construct OK.");
       return iot.readJson_inFlash(DOC, file); // succeed to read file
@@ -135,17 +152,17 @@ bool select_SWdefinition_src(JsonDocument &DOC)
     return readParameters_hardCoded(DOC) == 0;
   }
 }
-bool select_Topicsdefinition_src(JsonDocument &DOC)
+bool readTopics_defs(JsonDocument &DOC)
 {
   if (READ_PARAMTERS_FROM_FLASH)
   {
     char file[30];
     build_filename_path(DOC, file, SW_TOPICS_FILENAME);
-    return iot.readJson_inFlash(DOC, file);
+    return iot.readJson_inFlash(DOC, file); // succeed to read JSON from flash
   }
   else
   {
-    return readTopics_hardCoded(DOC) == 0;
+    return readTopics_hardCoded(DOC) == 0; // succeed to read JSON from hardcoded backup
   }
 }
 void Telemtry2JSON(JsonDocument &DOC, uint8_t i)
@@ -172,7 +189,7 @@ void Telemtry2JSON(JsonDocument &DOC, uint8_t i)
 bool readLastAction_file(JsonDocument &DOC)
 {
   myJflash ActionSave;
-  return ActionSave.readFile(DOC, savedActivity_filename);
+  return ActionSave.readFile(DOC, ACTIVITY_FILENAME);
 }
 bool savedLastAction_file(uint8_t i)
 {
@@ -181,5 +198,5 @@ bool savedLastAction_file(uint8_t i)
 
   readLastAction_file(DOC);
   Telemtry2JSON(DOC, i);
-  return ActionSave.writeFile(DOC, savedActivity_filename);
+  return ActionSave.writeFile(DOC, ACTIVITY_FILENAME);
 }
