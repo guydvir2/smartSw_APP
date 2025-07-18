@@ -1,0 +1,7 @@
+Name: Kitchen LedStrip
+MCU: ESP8266
+Input: NO
+output: PWM MosFET
+timeout: 720
+
+

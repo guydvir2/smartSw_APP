@@ -6,7 +6,7 @@
 #define JSON_DOC_SIZE 1200
 #define ACT_JSON_DOC_SIZE 800
 #define READ_PARAMTERS_FROM_FLASH true /* Flash or HardCoded Parameters */
-#define veboseMode false
+#define veboseMode true
 
 myIOT2 iot;
 smartSwitch *SW_Array[MAX_SW_NUM]{};
@@ -58,13 +58,23 @@ void postEntity(uint8_t i)
   char clk[25];
   char msg[300];
   char topic[50];
+  DynamicJsonDocument DOC(50);
+
   iot.get_timeStamp(clk);
 
   sprintf(topic, "%s/SW%d/entity", iot.topics_sub[0], i);
   const char *swTypes[] = {"None", "Button", "Switch", "MultiPress"};
 
-  DynamicJsonDocument DOC(50);
-  iot.readJson_inFlash(DOC, SELECTION_FILENAME);
+  if (READ_PARAMTERS_FROM_FLASH)
+  {
+    if (!iot.readJson_inFlash(DOC, SELECTION_FILENAME)) // Points to the config directory
+    {
+      DOC["config"] = "flash_read_err";
+    }
+  }
+  else{
+    DOC["config"] = "non-flash";
+  }
 
   SW_props sw_properties;
   SW_Array[i]->get_SW_props(sw_properties);
@@ -530,6 +540,8 @@ void startService()
 
 void setup()
 {
+  Serial.begin(115200);
+  delay(1000);
   startService();
 }
 void loop()

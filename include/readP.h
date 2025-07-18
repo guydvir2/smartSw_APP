@@ -7,15 +7,15 @@ const char *SW_PARAMETERS_FILENAME = "sw_properies.json";
 
 uint8_t readParameters_hardCoded(JsonDocument &DOC)
 {
-  constexpr char *params = "{ \"numSW\": 1,\
-                          \"inputType\":[1],\
+  constexpr char *params = "{\"numSW\": 1,\
+                          \"inputType\":[0],\
                           \"inputPins\":[5],\
-                          \"outputPins\":[0],\
+                          \"outputPins\":[4],\
                           \"indicPins\":[255],\
                           \"swTimeout\":[0],\
                           \"swName\":[\"sw0\"],\
                           \"lockdown\":[false],\
-                          \"pwm_intense\":[0],\
+                          \"pwm_intense\":[80],\
                           \"outputON\":[1],\
                           \"inputPressed\":[0],\
                           \"onBoot\":[0],\
@@ -25,7 +25,8 @@ uint8_t readParameters_hardCoded(JsonDocument &DOC)
 }
 uint8_t readTopics_hardCoded(JsonDocument &DOC)
 {
-  constexpr const char *params = "{ \"gen_pubTopic\":[\"DvirHome/Messages\",\"DvirHome/log\",\"DvirHome/debug\"],\
+  constexpr const char *params = "{ \
+                          \"gen_pubTopic\":[\"DvirHome/Messages\",\"DvirHome/log\",\"DvirHome/debug\"],\
                           \"subTopic\":[\"DvirHome/light_CODE\",\"DvirHome/All\"],\
                           \"pubTopic\":[\"DvirHome/light_CODE/Avail\",\"DvirHome/light_CODE/State\"]}";
   DeserializationError err = deserializeJson(DOC, params);
@@ -137,18 +138,18 @@ bool get_sw_defs(JsonDocument &DOC)
     char file[30];
     if (build_filename_path(DOC, file, SW_PARAMETERS_FILENAME)) // able to construct file path
     {
-      Serial.println("construct OK.");
+      Serial.println("file-path construct OK.");
       return iot.readJson_inFlash(DOC, file); // succeed to read file
     }
     else
     {
-      Serial.println("construct failed.");
+      Serial.println("file-path construct failed.");
       return false;
     }
   }
   else
   {
-    Serial.println("HardCoded");
+    Serial.println(">> HardCoded parameters");
     return readParameters_hardCoded(DOC) == 0;
   }
 }
